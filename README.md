@@ -1,278 +1,431 @@
-# Server Pi 🚀
+# ESP32 Control Server 🚀
 
-A clean, simple, and modular Node.js server built with ShipFast principles, featuring **Raspberry Pi PWM control** with a beautiful web interface.
+A simple, clean, and powerful Node.js server for controlling ESP32 microcontrollers using the ShipFast boilerplate principles. This server provides real-time communication with ESP32 devices via WebSocket and comprehensive REST API endpoints for GPIO, PWM, ADC, and sensor control.
 
-## Features
+## 🌟 Features
 
-- ✅ **Clean Architecture**: Modular route structure
-- ✅ **Security**: Helmet middleware for security headers
-- ✅ **CORS**: Cross-origin resource sharing enabled
-- ✅ **Logging**: Morgan middleware for request logging
-- ✅ **Error Handling**: Comprehensive error handling
-- ✅ **Health Checks**: Multiple health check endpoints
-- ✅ **Documentation**: Well-commented code throughout
-- 🆕 **PWM Control**: Full Raspberry Pi GPIO PWM control
-- 🆕 **Web Interface**: Beautiful HTML control panel
-- 🆕 **Real-time Updates**: Live status monitoring
+### ESP32 Control Capabilities
+- **GPIO Control**: Digital input/output pin management
+- **PWM Output**: Advanced PWM control with up to 16 channels (LEDC)
+- **ADC Reading**: 12-bit analog input with voltage conversion
+- **Sensor Integration**: Real-time sensor data collection
+- **Touch Sensing**: Capacitive touch pin monitoring
+- **Device Management**: Multi-device registry and monitoring
 
-## Quick Start
+### Communication Features
+- **WebSocket**: Real-time bidirectional communication
+- **REST API**: Comprehensive HTTP endpoints
+- **Device Registry**: Automatic ESP32 device discovery and management
+- **Health Monitoring**: Automatic stale device cleanup
+- **Command Tracking**: Unique command ID system with response tracking
 
-### 1. Install Dependencies
+### Built-in ESP32 Support
+- **Pin Mapping**: Complete ESP32 GPIO pin configuration
+- **Hardware Validation**: Pin capability validation (GPIO, PWM, ADC, Touch)
+- **Error Handling**: Comprehensive error responses with helpful messages
+- **Status Monitoring**: Device uptime, memory usage, WiFi signal strength
 
+## 🔧 ESP32 Pin Configuration
+
+### Digital GPIO Pins
+**Available pins**: 0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33
+
+### PWM Capable Pins (LEDC)
+**All digital GPIO pins support PWM** with up to 16 channels
+- **Resolution**: 1-16 bits (configurable)
+- **Frequency**: 1 Hz to 40 MHz
+- **Channels**: 0-15 (auto-assigned or manual)
+
+### ADC Pins (Analog Input)
+**ADC1**: 32, 33, 34, 35, 36, 37, 38, 39 *(recommended)*
+**ADC2**: 0, 2, 4, 12, 13, 14, 15, 25, 26, 27 *(avoid when using WiFi)*
+
+### Touch Sensor Pins
+**Available pins**: 0, 2, 4, 12, 13, 14, 15, 27, 32, 33
+
+### Reserved Pins (Avoid)
+**Pins 6-11**: Connected to SPI flash memory
+
+## 🚀 Quick Start
+
+### 1. Installation
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd esp32-server
+
+# Install dependencies
 npm install
+
+# Start the server
+npm start
 ```
 
-### 2. Environment Setup
+### 2. Server Endpoints
+- **HTTP Server**: `http://localhost:8080`
+- **WebSocket Server**: `ws://localhost:8081`
+- **Health Check**: `http://localhost:8080/health`
+- **Device Management**: `http://localhost:8080/api/esp32/devices`
 
-Create a `.env` file in the root directory:
+## 📡 API Reference
 
+### Device Management
+
+#### Get All Connected Devices
+```http
+GET /api/esp32/devices
+```
+
+#### Get Device Status
+```http
+GET /api/esp32/status/{deviceId}
+```
+
+### GPIO Control
+
+#### Set GPIO Pin State
+```http
+POST /api/esp32/gpio/{deviceId}
+Content-Type: application/json
+
+{
+  "pin": 2,
+  "state": 1,
+  "mode": "OUTPUT"
+}
+```
+
+**Parameters:**
+- `pin`: GPIO pin number (0-33)
+- `state`: Pin state (0, 1, true, false)
+- `mode`: Pin mode ("INPUT", "OUTPUT", "INPUT_PULLUP", "INPUT_PULLDOWN")
+
+### PWM Control
+
+#### Set PWM Output
+```http
+POST /api/esp32/pwm/{deviceId}
+Content-Type: application/json
+
+{
+  "pin": 2,
+  "dutyCycle": 128,
+  "frequency": 1000,
+  "resolution": 8,
+  "channel": 0
+}
+```
+
+**Parameters:**
+- `pin`: PWM capable pin number
+- `dutyCycle`: Duty cycle value (0 to 2^resolution - 1)
+- `frequency`: PWM frequency (1 Hz to 40 MHz)
+- `resolution`: PWM resolution (1-16 bits)
+- `channel`: LEDC channel (0-15, optional)
+
+#### Stop PWM Output
+```http
+POST /api/esp32/pwm/{deviceId}/stop
+Content-Type: application/json
+
+{
+  "pin": 2,
+  "channel": 0
+}
+```
+
+### Analog Reading
+
+#### Read ADC Pin
+```http
+GET /api/esp32/analog/{deviceId}/{pin}
+```
+
+### Sensor Data
+
+#### Get All Sensor Readings
+```http
+GET /api/esp32/sensors/{deviceId}
+```
+
+### Custom Commands
+
+#### Send Custom Command
+```http
+POST /api/esp32/command/{deviceId}
+Content-Type: application/json
+
+{
+  "type": "custom_command",
+  "data": {
+    "command": "your_custom_command",
+    "parameters": {}
+  }
+}
+```
+
+### ESP32 Capabilities
+
+#### Get Pin Configuration and Features
+```http
+GET /api/esp32/capabilities
+```
+
+## 🔌 WebSocket Communication
+
+### ESP32 Device Registration
+```javascript
+// ESP32 sends registration message
+{
+  "type": "register",
+  "deviceId": "ESP32_001",
+  "data": {
+    "capabilities": {
+      "gpio": true,
+      "pwm": true,
+      "adc": true,
+      "touch": true
+    },
+    "boardType": "ESP32-WROOM-32",
+    "firmwareVersion": "1.0.0"
+  }
+}
+```
+
+### Status Updates
+```javascript
+// ESP32 sends periodic status updates
+{
+  "type": "status_update",
+  "deviceId": "ESP32_001",
+  "data": {
+    "status": "connected",
+    "uptime": 12345,
+    "freeHeap": 180000,
+    "wifiSignal": -45,
+    "sensors": {
+      "temperature": 25.6,
+      "humidity": 60.2
+    }
+  }
+}
+```
+
+### Command Response
+```javascript
+// ESP32 responds to server commands
+{
+  "id": "command_id_123",
+  "success": true,
+  "data": {
+    "pin": 2,
+    "state": 1
+  }
+}
+```
+
+## 🛠️ ESP32 Arduino Code Example
+
+Here's a basic ESP32 Arduino sketch to connect to the server:
+
+```cpp
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+
+const char* ssid = "your_wifi_ssid";
+const char* password = "your_wifi_password";
+const char* websocket_server = "192.168.1.100";
+const int websocket_port = 8081;
+
+WebSocketsClient webSocket;
+String deviceId = "ESP32_001";
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  
+  // Initialize WebSocket
+  webSocket.begin(websocket_server, websocket_port, "/");
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(5000);
+  
+  // Register device
+  registerDevice();
+}
+
+void loop() {
+  webSocket.loop();
+  
+  // Send heartbeat every 30 seconds
+  static unsigned long lastHeartbeat = 0;
+  if (millis() - lastHeartbeat > 30000) {
+    sendHeartbeat();
+    lastHeartbeat = millis();
+  }
+}
+
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_CONNECTED:
+      Serial.println("Connected to server");
+      registerDevice();
+      break;
+      
+    case WStype_TEXT:
+      handleCommand((char*)payload);
+      break;
+      
+    case WStype_DISCONNECTED:
+      Serial.println("Disconnected from server");
+      break;
+  }
+}
+
+void registerDevice() {
+  DynamicJsonDocument doc(1024);
+  doc["type"] = "register";
+  doc["deviceId"] = deviceId;
+  doc["data"]["capabilities"]["gpio"] = true;
+  doc["data"]["capabilities"]["pwm"] = true;
+  doc["data"]["capabilities"]["adc"] = true;
+  doc["data"]["boardType"] = "ESP32-WROOM-32";
+  
+  String message;
+  serializeJson(doc, message);
+  webSocket.sendTXT(message);
+}
+
+void handleCommand(String payload) {
+  DynamicJsonDocument doc(1024);
+  deserializeJson(doc, payload);
+  
+  if (doc["type"] == "command") {
+    String commandId = doc["id"];
+    JsonObject command = doc["command"];
+    
+    // Handle different command types
+    if (command["type"] == "gpio") {
+      handleGpioCommand(command, commandId);
+    } else if (command["type"] == "pwm") {
+      handlePwmCommand(command, commandId);
+    } else if (command["type"] == "adc_read") {
+      handleAdcCommand(command, commandId);
+    }
+  }
+}
+
+void handleGpioCommand(JsonObject command, String commandId) {
+  int pin = command["pin"];
+  String mode = command["mode"];
+  
+  if (mode == "OUTPUT") {
+    pinMode(pin, OUTPUT);
+    if (command.containsKey("state")) {
+      digitalWrite(pin, command["state"]);
+    }
+  } else if (mode == "INPUT") {
+    pinMode(pin, INPUT);
+  }
+  
+  // Send response
+  sendCommandResponse(commandId, true, "GPIO command executed");
+}
+
+void sendCommandResponse(String commandId, bool success, String message) {
+  DynamicJsonDocument doc(512);
+  doc["id"] = commandId;
+  doc["success"] = success;
+  doc["message"] = message;
+  
+  String response;
+  serializeJson(doc, response);
+  webSocket.sendTXT(response);
+}
+```
+
+## 📊 Monitoring and Health
+
+### Device Health Monitoring
+- **Automatic Cleanup**: Removes stale devices after 1 minute of inactivity
+- **Heartbeat System**: Keep-alive mechanism for connected devices
+- **Connection Status**: Real-time device connection monitoring
+- **Memory Monitoring**: Track ESP32 free heap memory
+- **WiFi Signal**: Monitor WiFi signal strength
+
+### Error Handling
+- **Comprehensive Validation**: Pin capability and parameter validation
+- **Helpful Error Messages**: Clear error descriptions with valid options
+- **Graceful Degradation**: Server continues operating even if devices disconnect
+- **Command Timeout**: 5-second timeout for ESP32 command responses
+
+## 🔧 Configuration
+
+### Environment Variables
+Create a `.env` file:
 ```env
-# Server Configuration
-PORT=3001
 NODE_ENV=development
-
-# Frontend Configuration
-FRONTEND_URL=http://localhost:3000
+PORT=8080
+WS_PORT=8081
 ```
 
-### 3. Start the Server
+### Server Configuration
+- **HTTP Port**: Default 8080 (configurable via PORT env var)
+- **WebSocket Port**: Default 8081 (configurable via WS_PORT env var)
+- **CORS**: Enabled for all origins
+- **JSON Limit**: 10MB request body limit
 
-For development (with auto-restart):
+## 🚦 Development
+
+### Running in Development Mode
 ```bash
-npm run dev
+npm run dev  # Uses nodemon for auto-restart
 ```
 
-For production:
-```bash
-npm start
-```
+### Testing the Server
+1. Start the server: `npm start`
+2. Check health: `curl http://localhost:8080/health`
+3. View capabilities: `curl http://localhost:8080/api/esp32/capabilities`
+4. Monitor devices: `curl http://localhost:8080/api/esp32/devices`
 
-### 4. Access the PWM Control Interface
-
-Open your browser and go to: **http://localhost:3001/index.html**
-
-## Available Endpoints
-
-### Root Endpoints
-- `GET /` - Welcome message and server info
-- `GET /health` - Basic health check
-- `GET /health/detailed` - Detailed health information
-- `GET /health/ready` - Readiness check for load balancers
-- `GET /health/live` - Liveness check for containers
-
-### API Endpoints
-- `GET /api` - API information and available endpoints
-- `GET /api/users` - Get all users (mock data)
-- `POST /api/users` - Create a new user
-- `GET /api/data` - Get data with pagination and search
-- `GET /api/test` - Test endpoint for development
-- `POST /api/test` - POST test endpoint
-
-### PWM Control Endpoints
-- `GET /api/pwm/status` - Get PWM status and available pins
-- `POST /api/pwm/set` - Set PWM signal (pin, dutyCycle, frequency)
-- `POST /api/pwm/stop` - Stop PWM on specific pin
-- `POST /api/pwm/stop-all` - Stop all PWM signals
-
-### Web Interface
-- `GET /index.html` - Beautiful PWM control interface
-
-## PWM Control Features
-
-### 🎛️ Web Interface
-- **Pin Selection**: Choose from hardware PWM (12, 13, 18, 19) or software PWM pins
-- **Duty Cycle Control**: Smooth slider with preset buttons (0%, 25%, 50%, 75%, 100%)
-- **Frequency Selection**: Common frequencies from 50Hz (servo) to 8000Hz
-- **Real-time Status**: Live monitoring of active pins and system status
-- **Activity Log**: Color-coded logging of all PWM operations
-
-### ⚙️ API Control
-Control PWM signals programmatically:
-
-```bash
-# Set PWM on GPIO 18 at 50% duty cycle, 1000Hz
-curl -X POST http://localhost:3001/api/pwm/set \
-  -H "Content-Type: application/json" \
-  -d '{"pin":18,"dutyCycle":128,"frequency":1000}'
-
-# Stop PWM on GPIO 18
-curl -X POST http://localhost:3001/api/pwm/stop \
-  -H "Content-Type: application/json" \
-  -d '{"pin":18}'
-
-# Get status
-curl http://localhost:3001/api/pwm/status
-```
-
-### 🔧 Hardware Support
-- **Hardware PWM**: Pins 12, 13, 18, 19 (recommended for precision)
-- **Software PWM**: All available GPIO pins
-- **Automatic Detection**: Works on Raspberry Pi with pigpio, simulation mode elsewhere
-- **Graceful Cleanup**: Proper GPIO cleanup on server shutdown
-
-## Project Structure
+## 📝 Project Structure
 
 ```
-server_pi/
+esp32-server/
 ├── routes/
-│   ├── api-routes.js      # Main API endpoints
+│   ├── api-routes.js      # General API routes
 │   ├── health-routes.js   # Health check endpoints
-│   └── pwm-routes.js      # PWM control endpoints
-├── public/
-│   └── index.html         # PWM control web interface
-├── server.js              # Main server file
-├── package.json           # Dependencies and scripts
-└── README.md             # This file
+│   └── esp32-routes.js    # ESP32 specific routes
+├── public/                # Static files (web interface)
+├── server.js             # Main server file
+├── package.json          # Dependencies and scripts
+└── README.md            # This file
 ```
 
-## Raspberry Pi Setup
+## 🤝 Contributing
 
-### Prerequisites
-1. **Raspberry Pi 4 Model B** (or any compatible Pi)
-2. **pigpio daemon** for GPIO access
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### Installation on Raspberry Pi
-```bash
-# Install pigpio daemon
-sudo apt-get update
-sudo apt-get install pigpio
+## 📄 License
 
-# Start pigpio daemon (required for GPIO access)
-sudo pigpiod
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-# Clone and setup the server
-git clone <your-repo>
-cd server_pi
-npm install
-npm start
-```
+## 🙏 Acknowledgments
 
-### GPIO Pin Reference (Pi 4)
-| GPIO | Physical Pin | Type | Description |
-|------|--------------|------|-------------|
-| 12   | 32          | HW   | Hardware PWM (recommended) |
-| 13   | 33          | HW   | Hardware PWM (recommended) |
-| 18   | 12          | HW   | Hardware PWM (recommended) |
-| 19   | 35          | HW   | Hardware PWM (recommended) |
-| 2-27 | Various     | SW   | Software PWM (flexible) |
-
-## Testing the Server
-
-### Using the Web Interface (Recommended)
-1. Open: `http://localhost:3001/index.html`
-2. Select a GPIO pin (start with hardware PWM pins)
-3. Adjust duty cycle with slider or preset buttons
-4. Set frequency as needed
-5. Click "Set PWM" to activate
-6. Monitor real-time status in the interface
-
-### Using curl
-```bash
-# Test server
-curl http://localhost:3001
-
-# Test PWM status
-curl http://localhost:3001/api/pwm/status
-
-# Set PWM (50% duty cycle at 1kHz on GPIO 18)
-curl -X POST http://localhost:3001/api/pwm/set \
-  -H "Content-Type: application/json" \
-  -d '{"pin":18,"dutyCycle":128,"frequency":1000,"enabled":true}'
-```
-
-## Development Guidelines
-
-This server follows ShipFast principles:
-
-1. **Keep it Simple**: Clean, readable code over complexity
-2. **Modular Design**: Each route module handles specific functionality
-3. **Comprehensive Comments**: Every section is well-documented
-4. **Error Handling**: Proper error responses for all scenarios
-5. **Security First**: Helmet and CORS configured for production use
-6. **Graceful Cleanup**: Proper GPIO cleanup on shutdown
-
-## Common Use Cases
-
-### Servo Control
-```javascript
-// 50Hz for standard servos
-// Duty cycle 2.5-12.5% for 0-180° range
-fetch('/api/pwm/set', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    pin: 18,
-    frequency: 50,
-    dutyCycle: 13  // ~5% for 90° position
-  })
-});
-```
-
-### LED Brightness Control
-```javascript
-// High frequency for smooth LED dimming
-fetch('/api/pwm/set', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    pin: 18,
-    frequency: 1000,
-    dutyCycle: 128  // 50% brightness
-  })
-});
-```
-
-### Motor Speed Control
-```javascript
-// Medium frequency for motor control
-fetch('/api/pwm/set', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    pin: 18,
-    frequency: 500,
-    dutyCycle: 191  // 75% speed
-  })
-});
-```
-
-## Troubleshooting
-
-### pigpio Issues
-```bash
-# Check if pigpiod is running
-sudo systemctl status pigpiod
-
-# Start pigpiod manually
-sudo pigpiod
-
-# Check permissions
-sudo usermod -a -G gpio $USER
-```
-
-### Common Errors
-- **"pigpio not available"**: Normal when not on Raspberry Pi (simulation mode)
-- **"Permission denied"**: Ensure pigpiod is running and user has GPIO permissions
-- **"Pin already in use"**: Stop existing PWM before reassigning pins
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `3001` |
-| `NODE_ENV` | Environment | `development` |
-| `FRONTEND_URL` | Frontend URL for CORS | `http://localhost:3000` |
-
-## Contributing
-
-When adding new features:
-1. Keep files under 200 lines
-2. Add comprehensive comments
-3. Follow the modular structure
-4. Test your changes
-5. Update this README if needed
+- Built with **ShipFast** principles for clean, simple, and readable code
+- Designed for **ESP32** microcontroller ecosystem
+- Inspired by modern IoT development practices
 
 ---
 
-Built with ❤️ using ShipFast principles for Raspberry Pi PWM control 
+**Ready to control your ESP32 devices!** 🎛️✨ 

@@ -3,165 +3,807 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWM Test Page</title>
+    <title>ESP32 Control Center</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .test-section { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        input, select { padding: 8px; margin: 5px; border-radius: 3px; border: 1px solid #ccc; }
-        .log { background: #222; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: auto; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .status-bar {
+            background: linear-gradient(90deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 16px rgba(66, 153, 225, 0.3);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            color: #2d3748;
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            color: #4a5568;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #4299e1;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(66, 153, 225, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 8px 20px rgba(72, 187, 120, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 8px 20px rgba(245, 101, 101, 0.4);
+        }
+
+        .device-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .device-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4299e1;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .device-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .device-item.selected {
+            border-left-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .device-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+
+        .device-status {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .log-container {
+            background: #1a202c;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .log-info { background: rgba(66, 153, 225, 0.2); }
+        .log-success { background: rgba(72, 187, 120, 0.2); }
+        .log-error { background: rgba(245, 101, 101, 0.2); }
+        .log-warning { background: rgba(237, 137, 54, 0.2); }
+
+        .slider-container {
+            position: relative;
+            margin: 15px 0;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4299e1;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #3182ce;
+        }
+
+        .slider-value {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            background: #edf2f7;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .preset-btn:hover {
+            background: #e2e8f0;
+            transform: translateY(-1px);
+        }
+
+        .info-badge {
+            background: #bee3f8;
+            color: #2c5282;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .ws-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f56565;
+        }
+
+        .ws-indicator.connected {
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>PWM Control Test Page 🧪</h1>
-    
-    <div class="test-section">
-        <h2>📡 API Status Test</h2>
-        <button id="testApiStatusBtn">Test API Status</button>
-        <button id="testApiConnectionBtn">Test API Connection</button>
-        <div id="apiResults"></div>
-    </div>
+    <div class="container">
+        <div class="header">
+            <h1>🎛️ ESP32 Control Center</h1>
+            <p>Real-time microcontroller management and control</p>
+        </div>
 
-    <div class="test-section">
-        <h2>🎛️ PWM Control Test</h2>
-        <label>GPIO Pin:</label>
-        <select id="testPin">
-            <option value="18">GPIO 18 (Hardware PWM)</option>
-            <option value="12">GPIO 12 (Hardware PWM)</option>
-            <option value="13">GPIO 13 (Hardware PWM)</option>
-            <option value="19">GPIO 19 (Hardware PWM)</option>
-            <option value="4">GPIO 4 (Software PWM)</option>
-        </select>
-        
-        <label>Duty Cycle (0-255):</label>
-        <input type="range" id="testDutyCycle" min="0" max="255" value="128">
-        <span id="dutyDisplay">128 (50%)</span>
-        
-        <label>Frequency (Hz):</label>
-        <input type="number" id="testFrequency" value="1000" min="1" max="8000">
-        
-        <br><br>
-        <button id="setPwmBtn">🔛 Set PWM</button>
-        <button id="stopPwmBtn">🔴 Stop PWM</button>
-        <button id="stopAllBtn">⛔ Stop All</button>
-        <button id="getStatusBtn">📊 Get Status</button>
-    </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator"></div>
+                <span>Server Online</span>
+            </div>
+            <div class="status-item">
+                <span>Connected Devices: <strong id="device-count">0</strong></span>
+            </div>
+            <div class="status-item">
+                <span id="server-time">--:--:--</span>
+            </div>
+        </div>
 
-    <div class="test-section">
-        <h2>📝 Test Log</h2>
-        <div id="testLog" class="log"></div>
-        <button id="clearLogBtn">Clear Log</button>
+        <div class="connection-status">
+            <div class="ws-indicator" id="ws-indicator"></div>
+            <span id="ws-status">Connecting to WebSocket...</span>
+        </div>
+
+        <div class="grid">
+            <!-- Device Management Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        📱 Device Management
+                        <span class="info-badge" id="devices-info">0 devices</span>
+                    </h2>
+                </div>
+                <div class="device-list" id="device-list">
+                    <div style="text-align: center; color: #718096; padding: 20px;">
+                        No ESP32 devices connected
+                    </div>
+                </div>
+                <button class="btn" onclick="refreshDevices()">
+                    🔄 Refresh Devices
+                </button>
+            </div>
+
+            <!-- GPIO Control Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">⚡ GPIO Control</h2>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Device ID</label>
+                    <select class="form-control" id="gpio-device">
+                        <option value="">Select Device</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">GPIO Pin</label>
+                    <select class="form-control" id="gpio-pin">
+                        <option value="2">Pin 2 (Built-in LED)</option>
+                        <option value="4">Pin 4</option>
+                        <option value="5">Pin 5</option>
+                        <option value="12">Pin 12</option>
+                        <option value="13">Pin 13</option>
+                        <option value="14">Pin 14</option>
+                        <option value="15">Pin 15</option>
+                        <option value="16">Pin 16</option>
+                        <option value="17">Pin 17</option>
+                        <option value="18">Pin 18</option>
+                        <option value="19">Pin 19</option>
+                        <option value="21">Pin 21</option>
+                        <option value="22">Pin 22</option>
+                        <option value="23">Pin 23</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pin Mode</label>
+                    <select class="form-control" id="gpio-mode">
+                        <option value="OUTPUT">OUTPUT</option>
+                        <option value="INPUT">INPUT</option>
+                        <option value="INPUT_PULLUP">INPUT_PULLUP</option>
+                        <option value="INPUT_PULLDOWN">INPUT_PULLDOWN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">State</label>
+                    <select class="form-control" id="gpio-state">
+                        <option value="0">LOW (0)</option>
+                        <option value="1">HIGH (1)</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="setGpio()">
+                    ⚡ Set GPIO
+                </button>
+            </div>
+
+            <!-- PWM Control Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">🌊 PWM Control</h2>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Device ID</label>
+                    <select class="form-control" id="pwm-device">
+                        <option value="">Select Device</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">PWM Pin</label>
+                    <select class="form-control" id="pwm-pin">
+                        <option value="2">Pin 2</option>
+                        <option value="4">Pin 4</option>
+                        <option value="5">Pin 5</option>
+                        <option value="12">Pin 12</option>
+                        <option value="13">Pin 13</option>
+                        <option value="14">Pin 14</option>
+                        <option value="15">Pin 15</option>
+                        <option value="16">Pin 16</option>
+                        <option value="17">Pin 17</option>
+                        <option value="18">Pin 18</option>
+                        <option value="19">Pin 19</option>
+                        <option value="21">Pin 21</option>
+                        <option value="22">Pin 22</option>
+                        <option value="23">Pin 23</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Duty Cycle (0-255)</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="duty-cycle" min="0" max="255" value="0">
+                        <div class="slider-value" id="duty-value">0 (0%)</div>
+                    </div>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="setDutyCycle(0)">0%</button>
+                        <button class="preset-btn" onclick="setDutyCycle(64)">25%</button>
+                        <button class="preset-btn" onclick="setDutyCycle(128)">50%</button>
+                        <button class="preset-btn" onclick="setDutyCycle(191)">75%</button>
+                        <button class="preset-btn" onclick="setDutyCycle(255)">100%</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Frequency (Hz)</label>
+                    <select class="form-control" id="pwm-frequency">
+                        <option value="50">50 Hz (Servo)</option>
+                        <option value="100">100 Hz</option>
+                        <option value="500">500 Hz</option>
+                        <option value="1000" selected>1000 Hz (Default)</option>
+                        <option value="5000">5000 Hz</option>
+                        <option value="10000">10000 Hz</option>
+                        <option value="20000">20000 Hz</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="setPwm()">
+                        🌊 Set PWM
+                    </button>
+                    <button class="btn btn-danger" onclick="stopPwm()">
+                        ⏹️ Stop
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sensor Monitoring Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📊 Sensor Monitoring</h2>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Device ID</label>
+                    <select class="form-control" id="sensor-device">
+                        <option value="">Select Device</option>
+                    </select>
+                </div>
+                <div id="sensor-data" style="background: #f7fafc; border-radius: 8px; padding: 15px; min-height: 100px;">
+                    <div style="text-align: center; color: #718096;">
+                        Select a device to view sensor data
+                    </div>
+                </div>
+                <button class="btn" onclick="refreshSensorData()">
+                    📊 Refresh Sensors
+                </button>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📝 Activity Log</h2>
+                <button class="btn" onclick="clearLog()" style="margin-left: auto;">
+                    🗑️ Clear Log
+                </button>
+            </div>
+            <div class="log-container" id="activity-log">
+                <div class="log-entry log-info">
+                    [System] ESP32 Control Center initialized
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Use relative URLs to avoid browser HTTPS enforcement
-        const BASE_URL = ''; // Use relative URLs
-        
-        // DOM elements
-        const testApiStatusBtn = document.getElementById('testApiStatusBtn');
-        const testApiConnectionBtn = document.getElementById('testApiConnectionBtn');
-        const setPwmBtn = document.getElementById('setPwmBtn');
-        const stopPwmBtn = document.getElementById('stopPwmBtn');
-        const stopAllBtn = document.getElementById('stopAllBtn');
-        const getStatusBtn = document.getElementById('getStatusBtn');
-        const clearLogBtn = document.getElementById('clearLogBtn');
-        const testDutyCycle = document.getElementById('testDutyCycle');
+        let selectedDevice = '';
+        let wsConnection = null;
+        let devices = [];
 
-        // Utility function to log messages
-        function log(message, type = 'INFO') {
-            const timestamp = new Date().toLocaleTimeString();
-            const logDiv = document.getElementById('testLog');
-            const colors = {
-                'INFO': '#00aaff',
-                'SUCCESS': '#00ff00',
-                'ERROR': '#ff0000',
-                'WARNING': '#ffaa00'
-            };
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeWebSocket();
+            refreshDevices();
+            updateTime();
+            setInterval(updateTime, 1000);
+            setupSliders();
+        });
+
+        // WebSocket connection
+        function initializeWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.hostname}:8081`;
             
-            logDiv.innerHTML += `<div style="color: ${colors[type] || '#fff'}">
-                [${timestamp}] [${type}] ${message}
-            </div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
-
-        // Update duty cycle display
-        function updateDutyDisplay() {
-            const duty = document.getElementById('testDutyCycle').value;
-            const percentage = Math.round((duty / 255) * 100);
-            document.getElementById('dutyDisplay').textContent = `${duty} (${percentage}%)`;
-        }
-
-        // Test API status endpoint
-        async function testApiStatus() {
-            log('Testing API status endpoint...', 'INFO');
             try {
-                const response = await fetch('/api/pwm/status');
+                wsConnection = new WebSocket(wsUrl);
+                
+                wsConnection.onopen = function() {
+                    updateConnectionStatus(true, 'Connected to WebSocket');
+                    addLog('WebSocket connection established', 'success');
+                };
+                
+                wsConnection.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleWebSocketMessage(message);
+                    } catch (error) {
+                        addLog(`WebSocket message error: ${error.message}`, 'error');
+                    }
+                };
+                
+                wsConnection.onclose = function() {
+                    updateConnectionStatus(false, 'WebSocket disconnected');
+                    addLog('WebSocket connection closed', 'warning');
+                    
+                    // Attempt to reconnect after 5 seconds
+                    setTimeout(initializeWebSocket, 5000);
+                };
+                
+                wsConnection.onerror = function() {
+                    updateConnectionStatus(false, 'WebSocket connection error');
+                    addLog('WebSocket connection error', 'error');
+                };
+            } catch (error) {
+                updateConnectionStatus(false, 'Failed to create WebSocket connection');
+                addLog(`WebSocket initialization error: ${error.message}`, 'error');
+            }
+        }
+
+        function updateConnectionStatus(connected, message) {
+            const indicator = document.getElementById('ws-indicator');
+            const status = document.getElementById('ws-status');
+            
+            if (connected) {
+                indicator.classList.add('connected');
+                status.textContent = message;
+                status.style.color = '#48bb78';
+            } else {
+                indicator.classList.remove('connected');
+                status.textContent = message;
+                status.style.color = '#f56565';
+            }
+        }
+
+        function handleWebSocketMessage(message) {
+            if (message.type === 'welcome') {
+                addLog('Received welcome message from server', 'info');
+            } else if (message.type === 'device_update') {
+                refreshDevices();
+            }
+        }
+
+        // Device management
+        async function refreshDevices() {
+            try {
+                const response = await fetch('/api/esp32/devices');
                 const data = await response.json();
                 
-                document.getElementById('apiResults').innerHTML = `
-                    <h3>✅ API Status Response:</h3>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                if (data.success) {
+                    devices = data.devices;
+                    updateDeviceList();
+                    updateDeviceSelectors();
+                    document.getElementById('device-count').textContent = devices.length;
+                    document.getElementById('devices-info').textContent = `${devices.length} device${devices.length !== 1 ? 's' : ''}`;
+                    addLog(`Found ${devices.length} connected device(s)`, 'info');
+                } else {
+                    addLog('Failed to fetch devices', 'error');
+                }
+            } catch (error) {
+                addLog(`Error fetching devices: ${error.message}`, 'error');
+            }
+        }
+
+        function updateDeviceList() {
+            const deviceList = document.getElementById('device-list');
+            
+            if (devices.length === 0) {
+                deviceList.innerHTML = `
+                    <div style="text-align: center; color: #718096; padding: 20px;">
+                        No ESP32 devices connected
+                    </div>
                 `;
+                return;
+            }
+
+            deviceList.innerHTML = devices.map(device => `
+                <div class="device-item ${device.id === selectedDevice ? 'selected' : ''}" 
+                     onclick="selectDevice('${device.id}')">
+                    <div class="device-name">${device.id}</div>
+                    <div class="device-status">
+                        Status: ${device.status} | Last seen: ${new Date(device.lastSeen).toLocaleTimeString()}
+                        ${device.freeHeap ? ` | Free heap: ${Math.round(device.freeHeap / 1024)}KB` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateDeviceSelectors() {
+            const selectors = ['gpio-device', 'pwm-device', 'sensor-device'];
+            
+            selectors.forEach(selectorId => {
+                const selector = document.getElementById(selectorId);
+                const currentValue = selector.value;
                 
-                log(`API Status: ${data.success ? 'SUCCESS' : 'FAILED'}`, data.success ? 'SUCCESS' : 'ERROR');
-                log(`Mode: ${data.pigpioAvailable ? 'Hardware Control' : 'Simulation Mode'}`, 'INFO');
-                log(`Active Pins: ${data.activePins.length}`, 'INFO');
-            } catch (error) {
-                log(`API Status Error: ${error.message}`, 'ERROR');
-                document.getElementById('apiResults').innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
-            }
+                selector.innerHTML = '<option value="">Select Device</option>' +
+                    devices.map(device => 
+                        `<option value="${device.id}" ${device.id === currentValue ? 'selected' : ''}>${device.id}</option>`
+                    ).join('');
+            });
         }
 
-        // Test API connection
-        async function testApiConnection() {
-            log('Testing API connection...', 'INFO');
-            try {
-                const response = await fetch('/');
-                const data = await response.json();
-                log('✅ Server connection successful', 'SUCCESS');
-                log(`Server: ${data.message}`, 'INFO');
-            } catch (error) {
-                log(`❌ Server connection failed: ${error.message}`, 'ERROR');
-            }
+        function selectDevice(deviceId) {
+            selectedDevice = deviceId;
+            updateDeviceList();
+            
+            // Auto-select in dropdowns
+            document.getElementById('gpio-device').value = deviceId;
+            document.getElementById('pwm-device').value = deviceId;
+            document.getElementById('sensor-device').value = deviceId;
+            
+            refreshSensorData();
+            addLog(`Selected device: ${deviceId}`, 'info');
         }
 
-        // Test PWM set
-        async function setPwmTest() {
-            const pin = parseInt(document.getElementById('testPin').value);
-            const dutyCycle = parseInt(document.getElementById('testDutyCycle').value);
-            const frequency = parseInt(document.getElementById('testFrequency').value);
+        // GPIO Control
+        async function setGpio() {
+            const deviceId = document.getElementById('gpio-device').value;
+            const pin = parseInt(document.getElementById('gpio-pin').value);
+            const mode = document.getElementById('gpio-mode').value;
+            const state = parseInt(document.getElementById('gpio-state').value);
 
-            log(`Setting PWM: Pin ${pin}, Duty ${dutyCycle}, Freq ${frequency}Hz`, 'INFO');
+            if (!deviceId) {
+                addLog('Please select a device for GPIO control', 'warning');
+                return;
+            }
 
             try {
-                const response = await fetch('/api/pwm/set', {
+                const response = await fetch(`/api/esp32/gpio/${deviceId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pin, dutyCycle, frequency, enabled: true })
+                    body: JSON.stringify({ pin, mode, state })
                 });
 
                 const data = await response.json();
                 
                 if (data.success) {
-                    log(`✅ PWM Set Successfully: GPIO ${pin} at ${data.dutyPercentage}%`, 'SUCCESS');
-                    log(`Details: ${dutyCycle}/255 duty cycle @ ${frequency}Hz`, 'INFO');
-                    log(`Mode: ${data.mode}`, 'INFO');
+                    addLog(`GPIO Pin ${pin} set to ${mode} ${state ? 'HIGH' : 'LOW'}`, 'success');
                 } else {
-                    log(`❌ PWM Set Failed: ${data.error}`, 'ERROR');
+                    addLog(`GPIO Error: ${data.message}`, 'error');
                 }
             } catch (error) {
-                log(`❌ PWM Set Request Failed: ${error.message}`, 'ERROR');
+                addLog(`GPIO Request Error: ${error.message}`, 'error');
             }
         }
 
-        // Test PWM stop
-        async function stopPwmTest() {
-            const pin = parseInt(document.getElementById('testPin').value);
-            log(`Stopping PWM on pin ${pin}...`, 'INFO');
+        // PWM Control
+        function setupSliders() {
+            const dutyCycleSlider = document.getElementById('duty-cycle');
+            const dutyValue = document.getElementById('duty-value');
+
+            dutyCycleSlider.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                const percentage = Math.round((value / 255) * 100);
+                dutyValue.textContent = `${value} (${percentage}%)`;
+                
+                // Position the value indicator
+                const percent = (value / 255) * 100;
+                dutyValue.style.left = `${percent}%`;
+            });
+        }
+
+        function setDutyCycle(value) {
+            const slider = document.getElementById('duty-cycle');
+            const dutyValue = document.getElementById('duty-value');
+            
+            slider.value = value;
+            const percentage = Math.round((value / 255) * 100);
+            dutyValue.textContent = `${value} (${percentage}%)`;
+            
+            const percent = (value / 255) * 100;
+            dutyValue.style.left = `${percent}%`;
+        }
+
+        async function setPwm() {
+            const deviceId = document.getElementById('pwm-device').value;
+            const pin = parseInt(document.getElementById('pwm-pin').value);
+            const dutyCycle = parseInt(document.getElementById('duty-cycle').value);
+            const frequency = parseInt(document.getElementById('pwm-frequency').value);
+
+            if (!deviceId) {
+                addLog('Please select a device for PWM control', 'warning');
+                return;
+            }
 
             try {
-                const response = await fetch('/api/pwm/stop', {
+                const response = await fetch(`/api/esp32/pwm/${deviceId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin, dutyCycle, frequency, resolution: 8 })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog(`PWM set on pin ${pin}: ${data.dutyPercentage}% at ${frequency}Hz`, 'success');
+                } else {
+                    addLog(`PWM Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addLog(`PWM Request Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopPwm() {
+            const deviceId = document.getElementById('pwm-device').value;
+            const pin = parseInt(document.getElementById('pwm-pin').value);
+
+            if (!deviceId) {
+                addLog('Please select a device for PWM control', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/esp32/pwm/${deviceId}/stop`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ pin })
@@ -170,63 +812,85 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    log(`✅ PWM Stopped: GPIO ${pin}`, 'SUCCESS');
+                    addLog(`PWM stopped on pin ${pin}`, 'success');
                 } else {
-                    log(`❌ PWM Stop Failed: ${data.error}`, 'ERROR');
+                    addLog(`PWM Stop Error: ${data.message}`, 'error');
                 }
             } catch (error) {
-                log(`❌ PWM Stop Request Failed: ${error.message}`, 'ERROR');
+                addLog(`PWM Stop Request Error: ${error.message}`, 'error');
             }
         }
 
-        // Test stop all PWM
-        async function stopAllTest() {
-            log('Stopping all PWM signals...', 'INFO');
+        // Sensor monitoring
+        async function refreshSensorData() {
+            const deviceId = document.getElementById('sensor-device').value;
+            
+            if (!deviceId) {
+                document.getElementById('sensor-data').innerHTML = `
+                    <div style="text-align: center; color: #718096;">
+                        Select a device to view sensor data
+                    </div>
+                `;
+                return;
+            }
 
             try {
-                const response = await fetch('/api/pwm/stop-all', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
+                const response = await fetch(`/api/esp32/sensors/${deviceId}`);
                 const data = await response.json();
                 
                 if (data.success) {
-                    log(`✅ All PWM Stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
+                    const sensors = data.sensors;
+                    
+                    if (Object.keys(sensors).length === 0) {
+                        document.getElementById('sensor-data').innerHTML = `
+                            <div style="text-align: center; color: #718096;">
+                                No sensor data available
+                            </div>
+                        `;
+                    } else {
+                        const sensorHtml = Object.entries(sensors).map(([key, value]) => `
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding: 8px; background: white; border-radius: 5px;">
+                                <span style="font-weight: 500; color: #4a5568;">${key}:</span>
+                                <span style="color: #2d3748;">${value}</span>
+                            </div>
+                        `).join('');
+                        
+                        document.getElementById('sensor-data').innerHTML = sensorHtml;
+                    }
                 } else {
-                    log(`❌ Stop All Failed: ${data.error}`, 'ERROR');
+                    addLog(`Sensor Data Error: ${data.message}`, 'error');
                 }
             } catch (error) {
-                log(`❌ Stop All Request Failed: ${error.message}`, 'ERROR');
+                addLog(`Sensor Request Error: ${error.message}`, 'error');
             }
         }
 
-        // Clear log
+        // Utility functions
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('server-time').textContent = now.toLocaleTimeString();
+        }
+
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('activity-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
         function clearLog() {
-            document.getElementById('testLog').innerHTML = '';
+            const logContainer = document.getElementById('activity-log');
+            logContainer.innerHTML = `
+                <div class="log-entry log-info">
+                    [System] Activity log cleared
+                </div>
+            `;
         }
-
-        // Set up event listeners
-        function setupEventListeners() {
-            testApiStatusBtn.addEventListener('click', testApiStatus);
-            testApiConnectionBtn.addEventListener('click', testApiConnection);
-            setPwmBtn.addEventListener('click', setPwmTest);
-            stopPwmBtn.addEventListener('click', stopPwmTest);
-            stopAllBtn.addEventListener('click', stopAllTest);
-            getStatusBtn.addEventListener('click', testApiStatus);
-            clearLogBtn.addEventListener('click', clearLog);
-            testDutyCycle.addEventListener('input', updateDutyDisplay);
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            setupEventListeners();
-            log('🧪 PWM Test Page loaded', 'INFO');
-            log(`📡 Using relative URLs (same origin)`, 'INFO');
-            log(`🌐 Current location: ${window.location.href}`, 'INFO');
-            log('Click "Test API Status" to verify connection', 'INFO');
-            updateDutyDisplay();
-        });
     </script>
 </body>
+</html> 
 </html> 
