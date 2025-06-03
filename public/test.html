@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWM Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        input, select { padding: 8px; margin: 5px; border-radius: 3px; border: 1px solid #ccc; }
+        .log { background: #222; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>PWM Control Test Page 🧪</h1>
+    
+    <div class="test-section">
+        <h2>📡 API Status Test</h2>
+        <button id="testApiStatusBtn">Test API Status</button>
+        <button id="testApiConnectionBtn">Test API Connection</button>
+        <div id="apiResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎛️ PWM Control Test</h2>
+        <label>GPIO Pin:</label>
+        <select id="testPin">
+            <option value="18">GPIO 18 (Hardware PWM)</option>
+            <option value="12">GPIO 12 (Hardware PWM)</option>
+            <option value="13">GPIO 13 (Hardware PWM)</option>
+            <option value="19">GPIO 19 (Hardware PWM)</option>
+            <option value="4">GPIO 4 (Software PWM)</option>
+        </select>
+        
+        <label>Duty Cycle (0-255):</label>
+        <input type="range" id="testDutyCycle" min="0" max="255" value="128">
+        <span id="dutyDisplay">128 (50%)</span>
+        
+        <label>Frequency (Hz):</label>
+        <input type="number" id="testFrequency" value="1000" min="1" max="8000">
+        
+        <br><br>
+        <button id="setPwmBtn">🔛 Set PWM</button>
+        <button id="stopPwmBtn">🔴 Stop PWM</button>
+        <button id="stopAllBtn">⛔ Stop All</button>
+        <button id="getStatusBtn">📊 Get Status</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Test Log</h2>
+        <div id="testLog" class="log"></div>
+        <button id="clearLogBtn">Clear Log</button>
+    </div>
+
+    <script>
+        // Use relative URLs to avoid browser HTTPS enforcement
+        const BASE_URL = ''; // Use relative URLs
+        
+        // DOM elements
+        const testApiStatusBtn = document.getElementById('testApiStatusBtn');
+        const testApiConnectionBtn = document.getElementById('testApiConnectionBtn');
+        const setPwmBtn = document.getElementById('setPwmBtn');
+        const stopPwmBtn = document.getElementById('stopPwmBtn');
+        const stopAllBtn = document.getElementById('stopAllBtn');
+        const getStatusBtn = document.getElementById('getStatusBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const testDutyCycle = document.getElementById('testDutyCycle');
+
+        // Utility function to log messages
+        function log(message, type = 'INFO') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('testLog');
+            const colors = {
+                'INFO': '#00aaff',
+                'SUCCESS': '#00ff00',
+                'ERROR': '#ff0000',
+                'WARNING': '#ffaa00'
+            };
+            
+            logDiv.innerHTML += `<div style="color: ${colors[type] || '#fff'}">
+                [${timestamp}] [${type}] ${message}
+            </div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Update duty cycle display
+        function updateDutyDisplay() {
+            const duty = document.getElementById('testDutyCycle').value;
+            const percentage = Math.round((duty / 255) * 100);
+            document.getElementById('dutyDisplay').textContent = `${duty} (${percentage}%)`;
+        }
+
+        // Test API status endpoint
+        async function testApiStatus() {
+            log('Testing API status endpoint...', 'INFO');
+            try {
+                const response = await fetch('/api/pwm/status');
+                const data = await response.json();
+                
+                document.getElementById('apiResults').innerHTML = `
+                    <h3>✅ API Status Response:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                log(`API Status: ${data.success ? 'SUCCESS' : 'FAILED'}`, data.success ? 'SUCCESS' : 'ERROR');
+                log(`Mode: ${data.pigpioAvailable ? 'Hardware Control' : 'Simulation Mode'}`, 'INFO');
+                log(`Active Pins: ${data.activePins.length}`, 'INFO');
+            } catch (error) {
+                log(`API Status Error: ${error.message}`, 'ERROR');
+                document.getElementById('apiResults').innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Test API connection
+        async function testApiConnection() {
+            log('Testing API connection...', 'INFO');
+            try {
+                const response = await fetch('/');
+                const data = await response.json();
+                log('✅ Server connection successful', 'SUCCESS');
+                log(`Server: ${data.message}`, 'INFO');
+            } catch (error) {
+                log(`❌ Server connection failed: ${error.message}`, 'ERROR');
+            }
+        }
+
+        // Test PWM set
+        async function setPwmTest() {
+            const pin = parseInt(document.getElementById('testPin').value);
+            const dutyCycle = parseInt(document.getElementById('testDutyCycle').value);
+            const frequency = parseInt(document.getElementById('testFrequency').value);
+
+            log(`Setting PWM: Pin ${pin}, Duty ${dutyCycle}, Freq ${frequency}Hz`, 'INFO');
+
+            try {
+                const response = await fetch('/api/pwm/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin, dutyCycle, frequency, enabled: true })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(`✅ PWM Set Successfully: GPIO ${pin} at ${data.dutyPercentage}%`, 'SUCCESS');
+                    log(`Details: ${dutyCycle}/255 duty cycle @ ${frequency}Hz`, 'INFO');
+                    log(`Mode: ${data.mode}`, 'INFO');
+                } else {
+                    log(`❌ PWM Set Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`❌ PWM Set Request Failed: ${error.message}`, 'ERROR');
+            }
+        }
+
+        // Test PWM stop
+        async function stopPwmTest() {
+            const pin = parseInt(document.getElementById('testPin').value);
+            log(`Stopping PWM on pin ${pin}...`, 'INFO');
+
+            try {
+                const response = await fetch('/api/pwm/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(`✅ PWM Stopped: GPIO ${pin}`, 'SUCCESS');
+                } else {
+                    log(`❌ PWM Stop Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`❌ PWM Stop Request Failed: ${error.message}`, 'ERROR');
+            }
+        }
+
+        // Test stop all PWM
+        async function stopAllTest() {
+            log('Stopping all PWM signals...', 'INFO');
+
+            try {
+                const response = await fetch('/api/pwm/stop-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(`✅ All PWM Stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
+                } else {
+                    log(`❌ Stop All Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`❌ Stop All Request Failed: ${error.message}`, 'ERROR');
+            }
+        }
+
+        // Clear log
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            testApiStatusBtn.addEventListener('click', testApiStatus);
+            testApiConnectionBtn.addEventListener('click', testApiConnection);
+            setPwmBtn.addEventListener('click', setPwmTest);
+            stopPwmBtn.addEventListener('click', stopPwmTest);
+            stopAllBtn.addEventListener('click', stopAllTest);
+            getStatusBtn.addEventListener('click', testApiStatus);
+            clearLogBtn.addEventListener('click', clearLog);
+            testDutyCycle.addEventListener('input', updateDutyDisplay);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            log('🧪 PWM Test Page loaded', 'INFO');
+            log(`📡 Using relative URLs (same origin)`, 'INFO');
+            log(`🌐 Current location: ${window.location.href}`, 'INFO');
+            log('Click "Test API Status" to verify connection', 'INFO');
+            updateDutyDisplay();
+        });
+    </script>
+</body>
+</html> 
