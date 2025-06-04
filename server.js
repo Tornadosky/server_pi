@@ -15,6 +15,7 @@ const apiRoutes = require('./routes/api-routes');
 const healthRoutes = require('./routes/health-routes');
 const pwmRoutes = require('./routes/pwm-routes');
 const robotRoutes = require('./routes/robot-routes'); // Add robot routes
+const sensorRoutes = require('./routes/sensor-routes'); // Add sensor routes
 
 // Create Express application instance
 const app = express();
@@ -63,6 +64,9 @@ app.use('/api/pwm', pwmRoutes);
 
 // Robot control routes - 4-wheel robot speed management
 app.use('/api/robot', robotRoutes);
+
+// Sensor routes - GPIO input monitoring for wheel encoders
+app.use('/api/sensors', sensorRoutes.router);
 
 // Root endpoint - simple welcome message
 app.get('/', (req, res) => {
@@ -220,6 +224,9 @@ io.on('connection', (socket) => {
 // Set Socket.IO instance in robot routes for broadcasting
 robotRoutes.setSocket(io);
 
+// Set Socket.IO instance in sensor routes for real-time sensor updates
+sensorRoutes.setSocket(io);
+
 // Start HTTP server with WebSocket support
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 HTTP Server running on port ${PORT}`);
@@ -269,6 +276,11 @@ function gracefulShutdown(signal) {
     // Cleanup PWM pins
     if (pwmRoutes.cleanup) {
       pwmRoutes.cleanup();
+    }
+    
+    // Cleanup sensor monitoring
+    if (sensorRoutes.cleanup) {
+      sensorRoutes.cleanup();
     }
     
     console.log('✅ Cleanup completed');

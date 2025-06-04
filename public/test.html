@@ -342,6 +342,84 @@
             border-color: #667eea;
         }
 
+        /* Sensor Dashboard Styles */
+        .sensor-dashboard {
+            border-left: 4px solid #28a745;
+        }
+
+        .sensor-dashboard.active {
+            border-color: #28a745;
+            box-shadow: 0 12px 40px rgba(40, 167, 69, 0.2);
+        }
+
+        .sensor-indicator {
+            background: #dc3545 !important;
+        }
+
+        .sensor-indicator.active {
+            background: #28a745 !important;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5) !important;
+        }
+
+        .sensor-readings {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .sensor-metric {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .sensor-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .sensor-controls .action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+        }
+
+        .sensor-enable.enabled {
+            background: #28a745;
+        }
+
+        .sensor-enable.enabled:hover {
+            background: #218838;
+        }
+
+        /* Sensor pulse animation */
+        .pulse-animation {
+            animation: pulseGlow 0.3s ease-in-out;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(40, 167, 69, 0.8); }
+            100% { transform: scale(1); }
+        }
+
         /* Log Section */
         .log-section {
             margin-top: 30px;
@@ -626,6 +704,191 @@
             </div>
         </div>
 
+        <!-- Sensor Input Monitoring -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">📡 Sensor Input Monitoring</h2>
+            <div class="gpio-dashboards" id="sensorDashboards">
+                <!-- Sensor 1 -->
+                <div class="gpio-dashboard sensor-dashboard" data-sensor="1">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">📊 Sensor #1</span>
+                        <select class="sensor-selector" data-sensor-pin="1">
+                            <option value="2" selected>GPIO 2 (Input)</option>
+                            <option value="3">GPIO 3 (Input)</option>
+                            <option value="4">GPIO 4 (Input)</option>
+                            <option value="17">GPIO 17 (Input)</option>
+                            <option value="27">GPIO 27 (Input)</option>
+                            <option value="22">GPIO 22 (Input)</option>
+                            <option value="23">GPIO 23 (Input)</option>
+                            <option value="24">GPIO 24 (Input)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="sensor-status">
+                        <div class="status-indicator sensor-indicator" data-sensor-indicator="1"></div>
+                        <span class="status-text">Monitoring GPIO 2</span>
+                    </div>
+                    
+                    <div class="sensor-readings">
+                        <div class="sensor-metric">
+                            <div class="metric-label">Total Pulses</div>
+                            <div class="metric-value" id="sensorPulses1">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Pulses/sec</div>
+                            <div class="metric-value" id="sensorRate1">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Last Pulse</div>
+                            <div class="metric-value" id="sensorTime1">--:--</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-controls">
+                        <button class="action-btn secondary sensor-reset" data-reset-sensor="1">🔄 Reset</button>
+                        <button class="action-btn sensor-enable" data-enable-sensor="1">📡 Enable</button>
+                    </div>
+                </div>
+
+                <!-- Sensor 2 -->
+                <div class="gpio-dashboard sensor-dashboard" data-sensor="2">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">📊 Sensor #2</span>
+                        <select class="sensor-selector" data-sensor-pin="2">
+                            <option value="3" selected>GPIO 3 (Input)</option>
+                            <option value="2">GPIO 2 (Input)</option>
+                            <option value="4">GPIO 4 (Input)</option>
+                            <option value="17">GPIO 17 (Input)</option>
+                            <option value="27">GPIO 27 (Input)</option>
+                            <option value="22">GPIO 22 (Input)</option>
+                            <option value="23">GPIO 23 (Input)</option>
+                            <option value="24">GPIO 24 (Input)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="sensor-status">
+                        <div class="status-indicator sensor-indicator" data-sensor-indicator="2"></div>
+                        <span class="status-text">Monitoring GPIO 3</span>
+                    </div>
+                    
+                    <div class="sensor-readings">
+                        <div class="sensor-metric">
+                            <div class="metric-label">Total Pulses</div>
+                            <div class="metric-value" id="sensorPulses2">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Pulses/sec</div>
+                            <div class="metric-value" id="sensorRate2">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Last Pulse</div>
+                            <div class="metric-value" id="sensorTime2">--:--</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-controls">
+                        <button class="action-btn secondary sensor-reset" data-reset-sensor="2">🔄 Reset</button>
+                        <button class="action-btn sensor-enable" data-enable-sensor="2">📡 Enable</button>
+                    </div>
+                </div>
+
+                <!-- Sensor 3 -->
+                <div class="gpio-dashboard sensor-dashboard" data-sensor="3">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">📊 Sensor #3</span>
+                        <select class="sensor-selector" data-sensor-pin="3">
+                            <option value="27" selected>GPIO 27 (Input)</option>
+                            <option value="2">GPIO 2 (Input)</option>
+                            <option value="3">GPIO 3 (Input)</option>
+                            <option value="4">GPIO 4 (Input)</option>
+                            <option value="17">GPIO 17 (Input)</option>
+                            <option value="22">GPIO 22 (Input)</option>
+                            <option value="23">GPIO 23 (Input)</option>
+                            <option value="24">GPIO 24 (Input)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="sensor-status">
+                        <div class="status-indicator sensor-indicator" data-sensor-indicator="3"></div>
+                        <span class="status-text">Monitoring GPIO 27</span>
+                    </div>
+                    
+                    <div class="sensor-readings">
+                        <div class="sensor-metric">
+                            <div class="metric-label">Total Pulses</div>
+                            <div class="metric-value" id="sensorPulses3">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Pulses/sec</div>
+                            <div class="metric-value" id="sensorRate3">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Last Pulse</div>
+                            <div class="metric-value" id="sensorTime3">--:--</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-controls">
+                        <button class="action-btn secondary sensor-reset" data-reset-sensor="3">🔄 Reset</button>
+                        <button class="action-btn sensor-enable" data-enable-sensor="3">📡 Enable</button>
+                    </div>
+                </div>
+
+                <!-- Sensor 4 -->
+                <div class="gpio-dashboard sensor-dashboard" data-sensor="4">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">📊 Sensor #4</span>
+                        <select class="sensor-selector" data-sensor-pin="4">
+                            <option value="22" selected>GPIO 22 (Input)</option>
+                            <option value="2">GPIO 2 (Input)</option>
+                            <option value="3">GPIO 3 (Input)</option>
+                            <option value="4">GPIO 4 (Input)</option>
+                            <option value="17">GPIO 17 (Input)</option>
+                            <option value="27">GPIO 27 (Input)</option>
+                            <option value="23">GPIO 23 (Input)</option>
+                            <option value="24">GPIO 24 (Input)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="sensor-status">
+                        <div class="status-indicator sensor-indicator" data-sensor-indicator="4"></div>
+                        <span class="status-text">Monitoring GPIO 22</span>
+                    </div>
+                    
+                    <div class="sensor-readings">
+                        <div class="sensor-metric">
+                            <div class="metric-label">Total Pulses</div>
+                            <div class="metric-value" id="sensorPulses4">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Pulses/sec</div>
+                            <div class="metric-value" id="sensorRate4">0</div>
+                        </div>
+                        <div class="sensor-metric">
+                            <div class="metric-label">Last Pulse</div>
+                            <div class="metric-value" id="sensorTime4">--:--</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sensor-controls">
+                        <button class="action-btn secondary sensor-reset" data-reset-sensor="4">🔄 Reset</button>
+                        <button class="action-btn sensor-enable" data-enable-sensor="4">📡 Enable</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn" id="resetAllSensors">🔄 Reset All Sensors</button>
+                <button class="action-btn" id="enableAllSensors">📡 Enable All</button>
+                <button class="action-btn secondary" id="disableAllSensors">🚫 Disable All</button>
+            </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                <strong>📋 Active Sensor Pins:</strong>
+                <div id="activeSensorsList">GPIO 2, GPIO 3, GPIO 27, GPIO 22</div>
+            </div>
+        </div>
+
         <!-- Log Section -->
         <div class="control-card log-section slide-in">
             <h2 class="card-title">📝 Activity Log</h2>
@@ -653,6 +916,9 @@
         const masterSlider = document.getElementById('masterSlider');
         const masterDisplay = document.getElementById('masterDisplay');
         const activePinsList = document.getElementById('activePinsList');
+        
+        // Sensor elements
+        const activeSensorsList = document.getElementById('activeSensorsList');
 
         // GPIO dashboard state
         const dashboardState = {
@@ -662,8 +928,176 @@
             4: { pin: 19, value: 0 }
         };
 
+        // Sensor state
+        const sensorState = {
+            1: { pin: 2, enabled: false, pulses: 0, rate: 0, lastPulse: null },
+            2: { pin: 3, enabled: false, pulses: 0, rate: 0, lastPulse: null },
+            3: { pin: 27, enabled: false, pulses: 0, rate: 0, lastPulse: null },
+            4: { pin: 22, enabled: false, pulses: 0, rate: 0, lastPulse: null }
+        };
+
         // Master control state
         let masterControlActive = false;
+
+        // GPIO pin management - track used pins to prevent conflicts
+        const availablePins = {
+            // All available GPIO pins on Raspberry Pi
+            all: [2, 3, 4, 12, 13, 14, 15, 17, 18, 19, 22, 23, 24, 27],
+            // Hardware PWM pins (preferred for PWM output)
+            hardwarePWM: [12, 13, 18, 19],
+            // Software PWM pins
+            softwarePWM: [4, 14, 15, 17],
+            // Good input pins (no special functions)
+            inputPins: [2, 3, 22, 23, 24, 27]
+        };
+
+        // Get currently used PWM pins
+        function getUsedPWMPins() {
+            return Object.values(dashboardState).map(state => state.pin);
+        }
+
+        // Get currently used sensor pins
+        function getUsedSensorPins() {
+            return Object.values(sensorState).map(state => state.pin);
+        }
+
+        // Get available pins for sensor input (exclude PWM pins)
+        function getAvailableSensorPins() {
+            const usedPWMPins = getUsedPWMPins();
+            return availablePins.all.filter(pin => !usedPWMPins.includes(pin));
+        }
+
+        // Get available pins for PWM output (exclude sensor pins)
+        function getAvailablePWMPins() {
+            const usedSensorPins = getUsedSensorPins();
+            return availablePins.all.filter(pin => !usedSensorPins.includes(pin));
+        }
+
+        // Update sensor pin options based on available pins
+        function updateSensorPinOptions() {
+            const availableSensorPins = getAvailableSensorPins();
+            
+            document.querySelectorAll('.sensor-selector').forEach(selector => {
+                const currentValue = parseInt(selector.value);
+                const sensorNumber = selector.dataset.sensorPin;
+                
+                // Store current selection
+                const wasSelected = currentValue;
+                
+                // Clear and rebuild options
+                selector.innerHTML = '';
+                
+                // Add current pin if it's still valid (not used by PWM)
+                const usedPWMPins = getUsedPWMPins();
+                if (!usedPWMPins.includes(currentValue)) {
+                    const option = document.createElement('option');
+                    option.value = currentValue;
+                    option.textContent = `GPIO ${currentValue} (Input)`;
+                    option.selected = true;
+                    selector.appendChild(option);
+                }
+                
+                // Add other available pins
+                availableSensorPins.forEach(pin => {
+                    if (pin !== currentValue) {
+                        const option = document.createElement('option');
+                        option.value = pin;
+                        option.textContent = `GPIO ${pin} (Input)`;
+                        selector.appendChild(option);
+                    }
+                });
+                
+                // If current pin is no longer available, select first available
+                if (usedPWMPins.includes(currentValue) && availableSensorPins.length > 0) {
+                    const newPin = availableSensorPins[0];
+                    selector.value = newPin;
+                    
+                    // Update sensor state
+                    sensorState[sensorNumber].pin = newPin;
+                    log(`Sensor ${sensorNumber}: Pin conflict resolved, moved to GPIO ${newPin}`, 'WARNING');
+                }
+            });
+        }
+
+        // Update PWM pin options based on available pins
+        function updatePWMPinOptions() {
+            const availablePWMPins = getAvailablePWMPins();
+            const hardwarePWM = availablePins.hardwarePWM.filter(pin => availablePWMPins.includes(pin));
+            const softwarePWM = availablePins.softwarePWM.filter(pin => availablePWMPins.includes(pin));
+            
+            // Update main PWM selector
+            const mainSelector = document.getElementById('mainPin');
+            const currentMainValue = parseInt(mainSelector.value);
+            
+            mainSelector.innerHTML = '';
+            
+            // Add hardware PWM options first
+            hardwarePWM.forEach(pin => {
+                const option = document.createElement('option');
+                option.value = pin;
+                option.textContent = `GPIO ${pin} (Hardware PWM)`;
+                if (pin === currentMainValue) option.selected = true;
+                mainSelector.appendChild(option);
+            });
+            
+            // Add software PWM options
+            softwarePWM.forEach(pin => {
+                const option = document.createElement('option');
+                option.value = pin;
+                option.textContent = `GPIO ${pin} (Software PWM)`;
+                if (pin === currentMainValue) option.selected = true;
+                mainSelector.appendChild(option);
+            });
+            
+            // Update dashboard selectors
+            document.querySelectorAll('.gpio-selector').forEach(selector => {
+                const currentValue = parseInt(selector.value);
+                const dashboardNumber = selector.dataset.pinSelector;
+                
+                selector.innerHTML = '';
+                
+                // Add current pin if still available
+                const usedSensorPins = getUsedSensorPins();
+                if (!usedSensorPins.includes(currentValue)) {
+                    const option = document.createElement('option');
+                    option.value = currentValue;
+                    option.textContent = `GPIO ${currentValue}`;
+                    option.selected = true;
+                    selector.appendChild(option);
+                }
+                
+                // Add other available pins
+                availablePWMPins.forEach(pin => {
+                    if (pin !== currentValue) {
+                        const option = document.createElement('option');
+                        option.value = pin;
+                        option.textContent = `GPIO ${pin}`;
+                        selector.appendChild(option);
+                    }
+                });
+                
+                // If current pin is no longer available, select first available
+                if (usedSensorPins.includes(currentValue) && availablePWMPins.length > 0) {
+                    const newPin = availablePWMPins[0];
+                    selector.value = newPin;
+                    
+                    // Update dashboard state
+                    dashboardState[dashboardNumber].pin = newPin;
+                    log(`PWM Dashboard ${dashboardNumber}: Pin conflict resolved, moved to GPIO ${newPin}`, 'WARNING');
+                }
+            });
+        }
+
+        // Initialize pin options on page load
+        function initializePinOptions() {
+            log('Initializing GPIO pin options with conflict prevention', 'INFO');
+            
+            // Update all pin selectors to show only available options
+            updateSensorPinOptions();
+            updatePWMPinOptions();
+            
+            log('GPIO pin conflict prevention active', 'SUCCESS');
+        }
 
         // Utility function to log messages
         function log(message, type = 'INFO') {
@@ -699,6 +1133,25 @@
         socket.on('pwmUpdate', (data) => {
             log(`PWM Update: GPIO ${data.pin} set to ${data.dutyCycle} (${Math.round((data.dutyCycle/255)*100)}%)`, 'WEBSOCKET');
             updateDashboardDisplay(data.pin, data.dutyCycle);
+        });
+
+        // Real-time sensor updates via WebSocket
+        socket.on('sensorPulse', (data) => {
+            const { sensor, pin, pulses, rate, timestamp } = data;
+            log(`Sensor Pulse: Sensor ${sensor} (GPIO ${pin}) - Total: ${pulses}, Rate: ${rate}/sec`, 'WEBSOCKET');
+            updateSensorDisplay(sensor, pulses, rate, timestamp);
+        });
+
+        socket.on('sensorUpdate', (data) => {
+            log(`Sensor Update: ${data.message}`, 'WEBSOCKET');
+            if (data.sensorStates) {
+                // Update all sensor states
+                Object.keys(data.sensorStates).forEach(sensor => {
+                    const state = data.sensorStates[sensor];
+                    sensorState[sensor] = { ...sensorState[sensor], ...state };
+                    updateSensorDisplay(sensor, state.pulses, state.rate, state.lastPulse);
+                });
+            }
         });
 
         // Send PWM command via WebSocket and HTTP
@@ -799,6 +1252,140 @@
         function updateActivePinsList() {
             const pins = Object.values(dashboardState).map(state => `GPIO ${state.pin}`);
             activePinsList.textContent = pins.join(', ');
+        }
+
+        // Update active sensors list display
+        function updateActiveSensorsList() {
+            const sensors = Object.values(sensorState).map(state => `GPIO ${state.pin}`);
+            activeSensorsList.textContent = sensors.join(', ');
+        }
+
+        // Update sensor display
+        function updateSensorDisplay(sensor, pulses, rate, timestamp) {
+            const pulsesElement = document.getElementById(`sensorPulses${sensor}`);
+            const rateElement = document.getElementById(`sensorRate${sensor}`);
+            const timeElement = document.getElementById(`sensorTime${sensor}`);
+            const indicatorElement = document.querySelector(`[data-sensor-indicator="${sensor}"]`);
+            
+            if (pulsesElement) {
+                pulsesElement.textContent = pulses;
+                // Add pulse animation
+                pulsesElement.classList.add('pulse-animation');
+                setTimeout(() => pulsesElement.classList.remove('pulse-animation'), 300);
+            }
+            
+            if (rateElement) {
+                rateElement.textContent = rate;
+            }
+            
+            if (timeElement && timestamp) {
+                const time = new Date(timestamp).toLocaleTimeString();
+                timeElement.textContent = time;
+            }
+            
+            if (indicatorElement && rate > 0) {
+                indicatorElement.classList.add('active');
+                // Remove active class after 1 second if no more pulses
+                setTimeout(() => {
+                    if (sensorState[sensor].rate === 0) {
+                        indicatorElement.classList.remove('active');
+                    }
+                }, 1000);
+            }
+            
+            // Update local state
+            sensorState[sensor].pulses = pulses;
+            sensorState[sensor].rate = rate;
+            sensorState[sensor].lastPulse = timestamp;
+        }
+
+        // Enable sensor monitoring
+        async function enableSensor(sensor) {
+            const pin = sensorState[sensor].pin;
+            
+            try {
+                const response = await fetch('/api/sensors/enable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sensor, pin })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    sensorState[sensor].enabled = true;
+                    log(`Sensor ${sensor} (GPIO ${pin}) enabled`, 'SUCCESS');
+                    
+                    // Update button state
+                    const button = document.querySelector(`[data-enable-sensor="${sensor}"]`);
+                    if (button) {
+                        button.textContent = '🟢 Enabled';
+                        button.classList.add('enabled');
+                    }
+                } else {
+                    log(`Failed to enable sensor ${sensor}: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`Sensor enable error: ${error.message}`, 'ERROR');
+            }
+        }
+
+        // Disable sensor monitoring
+        async function disableSensor(sensor) {
+            const pin = sensorState[sensor].pin;
+            
+            try {
+                const response = await fetch('/api/sensors/disable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sensor, pin })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    sensorState[sensor].enabled = false;
+                    log(`Sensor ${sensor} (GPIO ${pin}) disabled`, 'INFO');
+                    
+                    // Update button state
+                    const button = document.querySelector(`[data-enable-sensor="${sensor}"]`);
+                    if (button) {
+                        button.textContent = '📡 Enable';
+                        button.classList.remove('enabled');
+                    }
+                    
+                    // Clear indicator
+                    const indicator = document.querySelector(`[data-sensor-indicator="${sensor}"]`);
+                    if (indicator) {
+                        indicator.classList.remove('active');
+                    }
+                } else {
+                    log(`Failed to disable sensor ${sensor}: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`Sensor disable error: ${error.message}`, 'ERROR');
+            }
+        }
+
+        // Reset sensor counters
+        async function resetSensor(sensor) {
+            const pin = sensorState[sensor].pin;
+            
+            try {
+                const response = await fetch('/api/sensors/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sensor, pin })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log(`Sensor ${sensor} (GPIO ${pin}) reset`, 'INFO');
+                    updateSensorDisplay(sensor, 0, 0, null);
+                } else {
+                    log(`Failed to reset sensor ${sensor}: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`Sensor reset error: ${error.message}`, 'ERROR');
+            }
         }
 
         // Set PWM for all dashboard pins (master control)
@@ -939,9 +1526,92 @@
                 // Update active pins list
                 updateActivePinsList();
                 
+                // Update sensor pin options (exclude new PWM pin)
+                updateSensorPinOptions();
+                
                 // Stop PWM on old pin
                 setPWM(oldPin, 0);
             });
+        });
+
+        // Sensor pin selector handlers
+        document.querySelectorAll('.sensor-selector').forEach(selector => {
+            selector.addEventListener('change', (e) => {
+                const sensor = e.target.dataset.sensorPin;
+                const newPin = parseInt(e.target.value);
+                const oldPin = sensorState[sensor].pin;
+                
+                log(`Sensor ${sensor}: Changed from GPIO ${oldPin} to GPIO ${newPin}`, 'INFO');
+                
+                // Disable old sensor first
+                if (sensorState[sensor].enabled) {
+                    disableSensor(sensor);
+                }
+                
+                // Update sensor state
+                sensorState[sensor].pin = newPin;
+                sensorState[sensor].pulses = 0;
+                sensorState[sensor].rate = 0;
+                sensorState[sensor].lastPulse = null;
+                
+                // Reset display
+                updateSensorDisplay(sensor, 0, 0, null);
+                
+                // Update active sensors list
+                updateActiveSensorsList();
+                
+                // Update PWM pin options (exclude new sensor pin)
+                updatePWMPinOptions();
+            });
+        });
+
+        // Sensor enable/disable handlers
+        document.querySelectorAll('.sensor-enable').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const sensor = e.target.dataset.enableSensor;
+                
+                if (sensorState[sensor].enabled) {
+                    disableSensor(sensor);
+                } else {
+                    enableSensor(sensor);
+                }
+            });
+        });
+
+        // Sensor reset handlers
+        document.querySelectorAll('.sensor-reset').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const sensor = e.target.dataset.resetSensor;
+                resetSensor(sensor);
+            });
+        });
+
+        // Global sensor control handlers
+        document.getElementById('resetAllSensors').addEventListener('click', () => {
+            if (confirm('Reset all sensor counters?')) {
+                for (let sensor in sensorState) {
+                    resetSensor(sensor);
+                }
+                log('All sensor counters reset', 'INFO');
+            }
+        });
+
+        document.getElementById('enableAllSensors').addEventListener('click', () => {
+            for (let sensor in sensorState) {
+                if (!sensorState[sensor].enabled) {
+                    enableSensor(sensor);
+                }
+            }
+            log('All sensors enabled', 'INFO');
+        });
+
+        document.getElementById('disableAllSensors').addEventListener('click', () => {
+            for (let sensor in sensorState) {
+                if (sensorState[sensor].enabled) {
+                    disableSensor(sensor);
+                }
+            }
+            log('All sensors disabled', 'INFO');
         });
 
         // Preset button handlers
@@ -1040,9 +1710,13 @@
         updateMainDisplay();
         updateMasterDisplay();
         updateActivePinsList();
+        updateActiveSensorsList();
+        initializePinOptions();
         log('PWM Control Dashboard initialized', 'INFO');
         log('WebSocket connection established for real-time control', 'WEBSOCKET');
         log('Master Speed Control ready - controls all 4 GPIO pins simultaneously', 'INFO');
+        log('Sensor Input Monitoring ready - monitoring 4 GPIO sensor inputs', 'INFO');
+        log('GPIO pin conflict prevention enabled - input/output pins are managed separately', 'INFO');
         
         // Initial status fetch
         setTimeout(() => {
