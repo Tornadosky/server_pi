@@ -1477,12 +1477,10 @@
         });
 
         document.getElementById('masterStop').addEventListener('click', () => {
-            if (confirm('Stop all GPIO pins via master control?')) {
-                masterSlider.value = 0;
-                updateMasterDisplay();
-                setMasterPWM(0);
-                log('Master Control: Emergency stop - all GPIO pins stopped', 'WARNING');
-            }
+            masterSlider.value = 0;
+            updateMasterDisplay();
+            setMasterPWM(0);
+            log('Master Control: Emergency stop - all GPIO pins stopped', 'WARNING');
         });
 
         // Main pin change handler
@@ -1588,12 +1586,10 @@
 
         // Global sensor control handlers
         document.getElementById('resetAllSensors').addEventListener('click', () => {
-            if (confirm('Reset all sensor counters?')) {
-                for (let sensor in sensorState) {
-                    resetSensor(sensor);
-                }
-                log('All sensor counters reset', 'INFO');
+            for (let sensor in sensorState) {
+                resetSensor(sensor);
             }
+            log('All sensor counters reset', 'INFO');
         });
 
         document.getElementById('enableAllSensors').addEventListener('click', () => {
@@ -1647,29 +1643,27 @@
 
         // Stop all PWM
         document.getElementById('stopAllBtn').addEventListener('click', async () => {
-            if (confirm('Stop all PWM signals?')) {
-                try {
-                    const response = await fetch('/api/pwm/stop-all', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+            try {
+                const response = await fetch('/api/pwm/stop-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    log(`All PWM stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
                     
-                    const data = await response.json();
-                    if (data.success) {
-                        log(`All PWM stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
-                        
-                        // Reset all displays
-                        for (let dashboard in dashboardState) {
-                            dashboardState[dashboard].value = 0;
-                            updateDashboardDisplay(dashboardState[dashboard].pin, 0);
-                        }
-                        
-                        mainSlider.value = 0;
-                        updateMainDisplay();
+                    // Reset all displays
+                    for (let dashboard in dashboardState) {
+                        dashboardState[dashboard].value = 0;
+                        updateDashboardDisplay(dashboardState[dashboard].pin, 0);
                     }
-                } catch (error) {
-                    log(`Stop All Error: ${error.message}`, 'ERROR');
+                    
+                    mainSlider.value = 0;
+                    updateMainDisplay();
                 }
+            } catch (error) {
+                log(`Stop All Error: ${error.message}`, 'ERROR');
             }
         });
 
