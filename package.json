@@ -24,7 +24,8 @@
     "cors": "^2.8.5",
     "morgan": "^1.10.0",
     "dotenv": "^16.3.1",
-    "pigpio": "^3.3.1"
+    "pigpio": "^3.3.1",
+    "socket.io": "^4.7.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

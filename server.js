@@ -8,11 +8,13 @@ const morgan = require('morgan');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
+const { Server } = require('socket.io'); // Add Socket.IO import
 
 // Import route modules (modular approach)
 const apiRoutes = require('./routes/api-routes');
 const healthRoutes = require('./routes/health-routes');
 const pwmRoutes = require('./routes/pwm-routes');
+const robotRoutes = require('./routes/robot-routes'); // Add robot routes
 
 // Create Express application instance
 const app = express();
@@ -59,6 +61,9 @@ app.use('/api', apiRoutes);
 // PWM control routes - Raspberry Pi GPIO PWM control
 app.use('/api/pwm', pwmRoutes);
 
+// Robot control routes - 4-wheel robot speed management
+app.use('/api/robot', robotRoutes);
+
 // Root endpoint - simple welcome message
 app.get('/', (req, res) => {
   const protocol = req.secure ? 'https' : 'http';
@@ -70,8 +75,11 @@ app.get('/', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     features: {
       pwmControl: 'Available at /api/pwm',
+      robotControl: 'Available at /api/robot',
       webInterface: `Available at ${protocol}://${host}/test.html`,
-      healthCheck: 'Available at /health'
+      robotDashboard: `Available at ${protocol}://${host}/robot.html`,
+      healthCheck: 'Available at /health',
+      websocket: 'Real-time updates via Socket.IO'
     },
     ssl: req.secure ? 'Secure HTTPS connection' : 'HTTP connection'
   });
@@ -93,7 +101,12 @@ app.use('*', (req, res) => {
       'GET /api/pwm/status',
       'POST /api/pwm/set',
       'POST /api/pwm/stop',
-      'POST /api/pwm/stop-all'
+      'POST /api/pwm/stop-all',
+      'GET /api/robot/status',
+      'POST /api/robot/speed',
+      'POST /api/robot/wheel',
+      'POST /api/robot/stop',
+      'POST /api/robot/reset-adjustments'
     ]
   });
 });
@@ -112,25 +125,117 @@ app.use((error, req, res, next) => {
 });
 
 // ==============================================
-// SERVER STARTUP (HTTP ONLY)
+// SERVER STARTUP (HTTP + WebSocket)
 // ==============================================
 
 // Create HTTP server
 const httpServer = http.createServer(app);
 
-// Start HTTP server
+// Initialize Socket.IO server
+const io = new Server(httpServer, {
+  cors: {
+    origin: true,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log(`🔌 WebSocket client connected: ${socket.id}`);
+  
+  // Send current robot state to newly connected client
+  const { robotState } = require('./routes/robot-routes');
+  socket.emit('robotUpdate', {
+    type: 'initialState',
+    robotState: robotState,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Handle client disconnect
+  socket.on('disconnect', () => {
+    console.log(`❌ WebSocket client disconnected: ${socket.id}`);
+  });
+  
+  // Handle real-time speed control from client
+  socket.on('setRobotSpeed', async (data) => {
+    console.log(`🎮 Real-time speed control: ${data.speed}% from ${socket.id}`);
+    
+    // Broadcast speed change to all other clients
+    socket.broadcast.emit('robotUpdate', {
+      type: 'speedChange',
+      speed: data.speed,
+      source: 'realtime',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // Handle real-time wheel adjustment from client
+  socket.on('setWheelAdjustment', async (data) => {
+    console.log(`⚙️  Real-time wheel adjustment: ${data.wheel} ${data.adjustment}% from ${socket.id}`);
+    
+    // Broadcast wheel adjustment to all other clients
+    socket.broadcast.emit('robotUpdate', {
+      type: 'wheelAdjustment',
+      wheel: data.wheel,
+      adjustment: data.adjustment,
+      source: 'realtime',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // Handle real-time PWM control from client
+  socket.on('setPWM', async (data) => {
+    const { pin, dutyCycle, frequency = 1000 } = data;
+    console.log(`🎛️  Real-time PWM control: GPIO ${pin} = ${dutyCycle} (${Math.round((dutyCycle/255)*100)}%) from ${socket.id}`);
+    
+    // Validate PWM data
+    if (pin >= 0 && pin <= 27 && dutyCycle >= 0 && dutyCycle <= 255) {
+      // Broadcast PWM update to all other clients for real-time sync
+      socket.broadcast.emit('pwmUpdate', {
+        pin: pin,
+        dutyCycle: dutyCycle,
+        frequency: frequency,
+        source: 'realtime',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.log(`❌ Invalid PWM data from ${socket.id}: pin=${pin}, dutyCycle=${dutyCycle}`);
+    }
+  });
+  
+  // Handle emergency stop from WebSocket
+  socket.on('emergencyStop', async () => {
+    console.log(`🛑 Emergency stop triggered via WebSocket from ${socket.id}`);
+    
+    // Broadcast emergency stop to all clients
+    io.emit('emergencyStop', {
+      source: 'websocket',
+      triggeredBy: socket.id,
+      timestamp: new Date().toISOString()
+    });
+  });
+});
+
+// Set Socket.IO instance in robot routes for broadcasting
+robotRoutes.setSocket(io);
+
+// Start HTTP server with WebSocket support
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 HTTP Server running on port ${PORT}`);
   console.log(`🔗 PWM Test Page: http://192.168.0.12:${PORT}/test.html`);
+  console.log(`🤖 Robot Dashboard: http://192.168.0.12:${PORT}/robot.html`);
+  console.log(`⚡ WebSocket server ready for real-time control!`);
 });
 
-// Store server for cleanup (HTTP-only mode)
-global.servers = { httpServer };
+// Store server for cleanup (HTTP + WebSocket)
+global.servers = { httpServer, io };
 
-console.log(`🚀 Server Pi is running in HTTP-only mode!`);
+console.log(`🚀 Server Pi is running with WebSocket support!`);
 console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
 console.log(`⚡ Ready to handle requests from any device!`);
 console.log(`💡 Access your PWM controller at: http://192.168.0.12:${PORT}/test.html`);
+console.log(`🤖 Access your Robot Dashboard at: http://192.168.0.12:${PORT}/robot.html`);
 
 // ==============================================
 // GRACEFUL SHUTDOWN HANDLING
@@ -142,6 +247,12 @@ function gracefulShutdown(signal) {
   
   const servers = global.servers || {};
   const serverPromises = [];
+  
+  // Close WebSocket connections
+  if (servers.io) {
+    console.log('🔌 Closing WebSocket connections...');
+    servers.io.close();
+  }
   
   // Close HTTP server
   if (servers.httpServer) {

@@ -3,230 +3,1051 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWM Test Page</title>
+    <title>PWM Control Dashboard 🤖</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .test-section { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        input, select { padding: 8px; margin: 5px; border-radius: 3px; border: 1px solid #ccc; }
-        .log { background: #222; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; height: 200px; overflow-y: auto; }
+        /* Modern CSS Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Connection Status */
+        .connection-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .connection-status.connecting {
+            background: #ff9800;
+            color: white;
+        }
+
+        /* Card Styles */
+        .control-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .control-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Main Control Section */
+        .main-control {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-control {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* PWM Control */
+        .pwm-control {
+            text-align: center;
+        }
+
+        .pwm-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .control-label {
+            font-weight: bold;
+            color: #333;
+            min-width: 100px;
+        }
+
+        select, input[type="number"] {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .pwm-slider {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pwm-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .pwm-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .action-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .action-btn.danger {
+            background: #ff4757;
+        }
+
+        .action-btn.danger:hover {
+            background: #ff3838;
+        }
+
+        .action-btn.secondary {
+            background: #6c757d;
+        }
+
+        .action-btn.secondary:hover {
+            background: #5a6268;
+        }
+
+        /* GPIO Dashboards Grid */
+        .gpio-dashboards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .gpio-dashboard {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .gpio-dashboard:hover {
+            transform: translateY(-3px);
+        }
+
+        .gpio-dashboard.active {
+            border-color: #667eea;
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
+        }
+
+        .dashboard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .dashboard-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .gpio-selector {
+            padding: 6px 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .gpio-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ddd;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.active {
+            background: #4caf50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .status-text {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .dashboard-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            margin: 15px 0;
+            cursor: pointer;
+        }
+
+        .dashboard-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .preset-btn {
+            padding: 8px 4px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #495057;
+            transition: all 0.3s ease;
+        }
+
+        .preset-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .preset-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* Log Section */
+        .log-section {
+            margin-top: 30px;
+        }
+
+        .log {
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            border: 2px solid #333;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .control-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-label {
+                min-width: auto;
+            }
+
+            .gpio-dashboards {
+                grid-template-columns: 1fr;
+            }
+
+            .preset-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Animation Classes */
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>PWM Control Test Page 🧪</h1>
-    
-    <div class="test-section">
-        <h2>📡 API Status Test</h2>
-        <button id="testApiStatusBtn">Test API Status</button>
-        <button id="testApiConnectionBtn">Test API Connection</button>
-        <div id="apiResults"></div>
+    <div class="connection-status connecting" id="connectionStatus">
+        🔄 Connecting...
     </div>
 
-    <div class="test-section">
-        <h2>🎛️ PWM Control Test</h2>
-        <label>GPIO Pin:</label>
-        <select id="testPin">
-            <option value="18">GPIO 18 (Hardware PWM)</option>
-            <option value="12">GPIO 12 (Hardware PWM)</option>
-            <option value="13">GPIO 13 (Hardware PWM)</option>
-            <option value="19">GPIO 19 (Hardware PWM)</option>
-            <option value="4">GPIO 4 (Software PWM)</option>
-        </select>
-        
-        <label>Duty Cycle (0-255):</label>
-        <input type="range" id="testDutyCycle" min="0" max="255" value="128">
-        <span id="dutyDisplay">128 (50%)</span>
-        
-        <label>Frequency (Hz):</label>
-        <input type="number" id="testFrequency" value="1000" min="1" max="8000">
-        
-        <br><br>
-        <button id="setPwmBtn">🔛 Set PWM</button>
-        <button id="stopPwmBtn">🔴 Stop PWM</button>
-        <button id="stopAllBtn">⛔ Stop All</button>
-        <button id="getStatusBtn">📊 Get Status</button>
-    </div>
+    <div class="container">
+        <div class="header slide-in">
+            <h1>🎛️ PWM Control Dashboard</h1>
+            <p class="subtitle">Real-time GPIO PWM control with WebSocket updates</p>
+        </div>
 
-    <div class="test-section">
-        <h2>📝 Test Log</h2>
-        <div id="testLog" class="log"></div>
-        <button id="clearLogBtn">Clear Log</button>
+        <!-- Main PWM Control Section -->
+        <div class="main-control">
+            <div class="control-card slide-in">
+                <h2 class="card-title">🔧 Main PWM Control</h2>
+                <div class="pwm-control">
+                    <div class="control-row">
+                        <span class="control-label">GPIO Pin:</span>
+                        <select id="mainPin">
+                            <option value="18">GPIO 18 (Hardware PWM)</option>
+                            <option value="12">GPIO 12 (Hardware PWM)</option>
+                            <option value="13">GPIO 13 (Hardware PWM)</option>
+                            <option value="19">GPIO 19 (Hardware PWM)</option>
+                            <option value="4">GPIO 4 (Software PWM)</option>
+                            <option value="14">GPIO 14 (Software PWM)</option>
+                            <option value="15">GPIO 15 (Software PWM)</option>
+                            <option value="17">GPIO 17 (Software PWM)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="pwm-display" id="mainDisplay">128 (50%)</div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Duty Cycle:</span>
+                        <input type="range" id="mainSlider" class="pwm-slider" min="0" max="255" value="128">
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Frequency:</span>
+                        <input type="number" id="mainFrequency" value="1000" min="1" max="8000">
+                        <span>Hz</span>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="action-btn danger" id="stopMainBtn">🔴 Stop</button>
+                        <button class="action-btn secondary" id="stopAllBtn">⛔ Stop All</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-card slide-in">
+                <h2 class="card-title">📊 System Status</h2>
+                <div id="statusDisplay">
+                    <div class="status-text">Connecting to server...</div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn" id="getStatusBtn">📊 Refresh Status</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Individual GPIO Dashboards -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">⚙️ Individual GPIO Controls</h2>
+            <div class="gpio-dashboards" id="gpioDashboards">
+                <!-- Dashboard 1 -->
+                <div class="gpio-dashboard" data-dashboard="1">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">🔌 GPIO #1</span>
+                        <select class="gpio-selector" data-pin-selector="1">
+                            <option value="18">GPIO 18</option>
+                            <option value="12">GPIO 12</option>
+                            <option value="13">GPIO 13</option>
+                            <option value="19">GPIO 19</option>
+                            <option value="4">GPIO 4</option>
+                            <option value="14">GPIO 14</option>
+                            <option value="15">GPIO 15</option>
+                            <option value="17">GPIO 17</option>
+                        </select>
+                    </div>
+                    
+                    <div class="gpio-status">
+                        <div class="status-indicator" data-indicator="1"></div>
+                        <span class="status-text" data-status="1">0 PWM (0%)</span>
+                    </div>
+                    
+                    <input type="range" class="dashboard-slider" data-slider="1" min="0" max="255" value="0">
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="1" data-value="64">25%</button>
+                        <button class="preset-btn" data-preset="1" data-value="128">50%</button>
+                        <button class="preset-btn" data-preset="1" data-value="191">75%</button>
+                        <button class="preset-btn" data-preset="1" data-value="255">100%</button>
+                    </div>
+                </div>
+
+                <!-- Dashboard 2 -->
+                <div class="gpio-dashboard" data-dashboard="2">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">🔌 GPIO #2</span>
+                        <select class="gpio-selector" data-pin-selector="2">
+                            <option value="12" selected>GPIO 12</option>
+                            <option value="18">GPIO 18</option>
+                            <option value="13">GPIO 13</option>
+                            <option value="19">GPIO 19</option>
+                            <option value="4">GPIO 4</option>
+                            <option value="14">GPIO 14</option>
+                            <option value="15">GPIO 15</option>
+                            <option value="17">GPIO 17</option>
+                        </select>
+                    </div>
+                    
+                    <div class="gpio-status">
+                        <div class="status-indicator" data-indicator="2"></div>
+                        <span class="status-text" data-status="2">0 PWM (0%)</span>
+                    </div>
+                    
+                    <input type="range" class="dashboard-slider" data-slider="2" min="0" max="255" value="0">
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="2" data-value="64">25%</button>
+                        <button class="preset-btn" data-preset="2" data-value="128">50%</button>
+                        <button class="preset-btn" data-preset="2" data-value="191">75%</button>
+                        <button class="preset-btn" data-preset="2" data-value="255">100%</button>
+                    </div>
+                </div>
+
+                <!-- Dashboard 3 -->
+                <div class="gpio-dashboard" data-dashboard="3">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">🔌 GPIO #3</span>
+                        <select class="gpio-selector" data-pin-selector="3">
+                            <option value="13" selected>GPIO 13</option>
+                            <option value="18">GPIO 18</option>
+                            <option value="12">GPIO 12</option>
+                            <option value="19">GPIO 19</option>
+                            <option value="4">GPIO 4</option>
+                            <option value="14">GPIO 14</option>
+                            <option value="15">GPIO 15</option>
+                            <option value="17">GPIO 17</option>
+                        </select>
+                    </div>
+                    
+                    <div class="gpio-status">
+                        <div class="status-indicator" data-indicator="3"></div>
+                        <span class="status-text" data-status="3">0 PWM (0%)</span>
+                    </div>
+                    
+                    <input type="range" class="dashboard-slider" data-slider="3" min="0" max="255" value="0">
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="3" data-value="64">25%</button>
+                        <button class="preset-btn" data-preset="3" data-value="128">50%</button>
+                        <button class="preset-btn" data-preset="3" data-value="191">75%</button>
+                        <button class="preset-btn" data-preset="3" data-value="255">100%</button>
+                    </div>
+                </div>
+
+                <!-- Dashboard 4 -->
+                <div class="gpio-dashboard" data-dashboard="4">
+                    <div class="dashboard-header">
+                        <span class="dashboard-title">🔌 GPIO #4</span>
+                        <select class="gpio-selector" data-pin-selector="4">
+                            <option value="19" selected>GPIO 19</option>
+                            <option value="18">GPIO 18</option>
+                            <option value="12">GPIO 12</option>
+                            <option value="13">GPIO 13</option>
+                            <option value="4">GPIO 4</option>
+                            <option value="14">GPIO 14</option>
+                            <option value="15">GPIO 15</option>
+                            <option value="17">GPIO 17</option>
+                        </select>
+                    </div>
+                    
+                    <div class="gpio-status">
+                        <div class="status-indicator" data-indicator="4"></div>
+                        <span class="status-text" data-status="4">0 PWM (0%)</span>
+                    </div>
+                    
+                    <input type="range" class="dashboard-slider" data-slider="4" min="0" max="255" value="0">
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="4" data-value="64">25%</button>
+                        <button class="preset-btn" data-preset="4" data-value="128">50%</button>
+                        <button class="preset-btn" data-preset="4" data-value="191">75%</button>
+                        <button class="preset-btn" data-preset="4" data-value="255">100%</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Master Speed Control -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">🚀 Master Speed Control</h2>
+            <div class="pwm-control">
+                <div class="pwm-display" id="masterDisplay">0 (0%)</div>
+                
+                <div class="control-row">
+                    <span class="control-label">Master PWM:</span>
+                    <input type="range" id="masterSlider" class="pwm-slider" min="0" max="255" value="0">
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: #666;">
+                    <span>0 PWM (0%)</span>
+                    <span>255 PWM (100%)</span>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn" id="masterPreset25">25% All</button>
+                    <button class="action-btn" id="masterPreset50">50% All</button>
+                    <button class="action-btn" id="masterPreset75">75% All</button>
+                    <button class="action-btn" id="masterPreset100">100% All</button>
+                    <button class="action-btn danger" id="masterStop">🛑 Stop All</button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                    <strong>📋 Active GPIO Pins:</strong>
+                    <div id="activePinsList">GPIO 18, GPIO 12, GPIO 13, GPIO 19</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div class="control-card log-section slide-in">
+            <h2 class="card-title">📝 Activity Log</h2>
+            <div id="log" class="log"></div>
+            <div class="action-buttons">
+                <button class="action-btn secondary" id="clearLogBtn">Clear Log</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Use relative URLs to avoid browser HTTPS enforcement
-        const BASE_URL = ''; // Use relative URLs
+        // Initialize Socket.IO connection
+        const socket = io();
         
         // DOM elements
-        const testApiStatusBtn = document.getElementById('testApiStatusBtn');
-        const testApiConnectionBtn = document.getElementById('testApiConnectionBtn');
-        const setPwmBtn = document.getElementById('setPwmBtn');
-        const stopPwmBtn = document.getElementById('stopPwmBtn');
-        const stopAllBtn = document.getElementById('stopAllBtn');
-        const getStatusBtn = document.getElementById('getStatusBtn');
-        const clearLogBtn = document.getElementById('clearLogBtn');
-        const testDutyCycle = document.getElementById('testDutyCycle');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const mainSlider = document.getElementById('mainSlider');
+        const mainDisplay = document.getElementById('mainDisplay');
+        const mainPin = document.getElementById('mainPin');
+        const mainFrequency = document.getElementById('mainFrequency');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const logElement = document.getElementById('log');
+        
+        // Master control elements
+        const masterSlider = document.getElementById('masterSlider');
+        const masterDisplay = document.getElementById('masterDisplay');
+        const activePinsList = document.getElementById('activePinsList');
+
+        // GPIO dashboard state
+        const dashboardState = {
+            1: { pin: 18, value: 0 },
+            2: { pin: 12, value: 0 },
+            3: { pin: 13, value: 0 },
+            4: { pin: 19, value: 0 }
+        };
+
+        // Master control state
+        let masterControlActive = false;
 
         // Utility function to log messages
         function log(message, type = 'INFO') {
             const timestamp = new Date().toLocaleTimeString();
-            const logDiv = document.getElementById('testLog');
             const colors = {
                 'INFO': '#00aaff',
                 'SUCCESS': '#00ff00',
                 'ERROR': '#ff0000',
-                'WARNING': '#ffaa00'
+                'WARNING': '#ffaa00',
+                'WEBSOCKET': '#ff00ff'
             };
             
-            logDiv.innerHTML += `<div style="color: ${colors[type] || '#fff'}">
+            logElement.innerHTML += `<div style="color: ${colors[type] || '#fff'}">
                 [${timestamp}] [${type}] ${message}
             </div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+            logElement.scrollTop = logElement.scrollHeight;
         }
 
-        // Update duty cycle display
-        function updateDutyDisplay() {
-            const duty = document.getElementById('testDutyCycle').value;
-            const percentage = Math.round((duty / 255) * 100);
-            document.getElementById('dutyDisplay').textContent = `${duty} (${percentage}%)`;
-        }
+        // WebSocket connection handlers
+        socket.on('connect', () => {
+            log('Connected to WebSocket server', 'WEBSOCKET');
+            connectionStatus.textContent = '🟢 Connected';
+            connectionStatus.className = 'connection-status connected';
+        });
 
-        // Test API status endpoint
-        async function testApiStatus() {
-            log('Testing API status endpoint...', 'INFO');
-            try {
-                const response = await fetch('/api/pwm/status');
-                const data = await response.json();
-                
-                document.getElementById('apiResults').innerHTML = `
-                    <h3>✅ API Status Response:</h3>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
-                
-                log(`API Status: ${data.success ? 'SUCCESS' : 'FAILED'}`, data.success ? 'SUCCESS' : 'ERROR');
-                log(`Mode: ${data.pigpioAvailable ? 'Hardware Control' : 'Simulation Mode'}`, 'INFO');
-                log(`Active Pins: ${data.activePins.length}`, 'INFO');
-            } catch (error) {
-                log(`API Status Error: ${error.message}`, 'ERROR');
-                document.getElementById('apiResults').innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
-            }
-        }
+        socket.on('disconnect', () => {
+            log('Disconnected from WebSocket server', 'WEBSOCKET');
+            connectionStatus.textContent = '🔴 Disconnected';
+            connectionStatus.className = 'connection-status disconnected';
+        });
 
-        // Test API connection
-        async function testApiConnection() {
-            log('Testing API connection...', 'INFO');
-            try {
-                const response = await fetch('/');
-                const data = await response.json();
-                log('✅ Server connection successful', 'SUCCESS');
-                log(`Server: ${data.message}`, 'INFO');
-            } catch (error) {
-                log(`❌ Server connection failed: ${error.message}`, 'ERROR');
-            }
-        }
+        // Real-time PWM updates via WebSocket
+        socket.on('pwmUpdate', (data) => {
+            log(`PWM Update: GPIO ${data.pin} set to ${data.dutyCycle} (${Math.round((data.dutyCycle/255)*100)}%)`, 'WEBSOCKET');
+            updateDashboardDisplay(data.pin, data.dutyCycle);
+        });
 
-        // Test PWM set
-        async function setPwmTest() {
-            const pin = parseInt(document.getElementById('testPin').value);
-            const dutyCycle = parseInt(document.getElementById('testDutyCycle').value);
-            const frequency = parseInt(document.getElementById('testFrequency').value);
-
-            log(`Setting PWM: Pin ${pin}, Duty ${dutyCycle}, Freq ${frequency}Hz`, 'INFO');
-
+        // Send PWM command via WebSocket and HTTP
+        async function setPWM(pin, dutyCycle, frequency = 1000) {
+            // Send via WebSocket for real-time updates
+            socket.emit('setPWM', { pin, dutyCycle, frequency });
+            
+            // Also send via HTTP for server-side processing
             try {
                 const response = await fetch('/api/pwm/set', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pin, dutyCycle, frequency, enabled: true })
+                    body: JSON.stringify({ pin, dutyCycle, frequency, enabled: dutyCycle > 0 })
                 });
-
-                const data = await response.json();
                 
+                const data = await response.json();
                 if (data.success) {
-                    log(`✅ PWM Set Successfully: GPIO ${pin} at ${data.dutyPercentage}%`, 'SUCCESS');
-                    log(`Details: ${dutyCycle}/255 duty cycle @ ${frequency}Hz`, 'INFO');
-                    log(`Mode: ${data.mode}`, 'INFO');
+                    log(`PWM Set: GPIO ${pin} = ${dutyCycle} (${data.dutyPercentage}%)`, 'SUCCESS');
+                    updateDashboardDisplay(pin, dutyCycle);
                 } else {
-                    log(`❌ PWM Set Failed: ${data.error}`, 'ERROR');
+                    log(`PWM Set Failed: ${data.error}`, 'ERROR');
                 }
             } catch (error) {
-                log(`❌ PWM Set Request Failed: ${error.message}`, 'ERROR');
+                log(`PWM Request Error: ${error.message}`, 'ERROR');
             }
         }
 
-        // Test PWM stop
-        async function stopPwmTest() {
-            const pin = parseInt(document.getElementById('testPin').value);
-            log(`Stopping PWM on pin ${pin}...`, 'INFO');
+        // Update dashboard display for a specific pin
+        function updateDashboardDisplay(pin, dutyCycle) {
+            const percentage = Math.round((dutyCycle / 255) * 100);
+            
+            // Update main display if it matches
+            if (parseInt(mainPin.value) === pin) {
+                mainDisplay.textContent = `${dutyCycle} (${percentage}%)`;
+                mainSlider.value = dutyCycle;
+            }
+            
+            // Update appropriate dashboard
+            for (let dashboard in dashboardState) {
+                if (dashboardState[dashboard].pin === pin) {
+                    dashboardState[dashboard].value = dutyCycle;
+                    
+                    const statusElement = document.querySelector(`[data-status="${dashboard}"]`);
+                    const indicatorElement = document.querySelector(`[data-indicator="${dashboard}"]`);
+                    const sliderElement = document.querySelector(`[data-slider="${dashboard}"]`);
+                    
+                    if (statusElement) {
+                        statusElement.textContent = `${dutyCycle} PWM (${percentage}%)`;
+                    }
+                    
+                    if (indicatorElement) {
+                        if (dutyCycle > 0) {
+                            indicatorElement.classList.add('active');
+                        } else {
+                            indicatorElement.classList.remove('active');
+                        }
+                    }
+                    
+                    if (sliderElement) {
+                        sliderElement.value = dutyCycle;
+                    }
+                    
+                    // Update preset button states
+                    updatePresetButtons(dashboard, dutyCycle);
+                    break;
+                }
+            }
+        }
 
+        // Update preset button states
+        function updatePresetButtons(dashboard, dutyCycle) {
+            const presetButtons = document.querySelectorAll(`[data-preset="${dashboard}"]`);
+            presetButtons.forEach(btn => {
+                const presetValue = parseInt(btn.dataset.value);
+                if (Math.abs(dutyCycle - presetValue) <= 2) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Update main display
+        function updateMainDisplay() {
+            const duty = parseInt(mainSlider.value);
+            const percentage = Math.round((duty / 255) * 100);
+            mainDisplay.textContent = `${duty} (${percentage}%)`;
+        }
+
+        // Update master display
+        function updateMasterDisplay() {
+            const duty = parseInt(masterSlider.value);
+            const percentage = Math.round((duty / 255) * 100);
+            masterDisplay.textContent = `${duty} (${percentage}%)`;
+        }
+
+        // Update active pins list display
+        function updateActivePinsList() {
+            const pins = Object.values(dashboardState).map(state => `GPIO ${state.pin}`);
+            activePinsList.textContent = pins.join(', ');
+        }
+
+        // Set PWM for all dashboard pins (master control)
+        async function setMasterPWM(dutyCycle) {
+            const promises = [];
+            
+            log(`Master Control: Setting all GPIO pins to ${dutyCycle} (${Math.round((dutyCycle/255)*100)}%)`, 'INFO');
+            
+            // Update all dashboard states and send PWM commands
+            for (let dashboard in dashboardState) {
+                const pin = dashboardState[dashboard].pin;
+                dashboardState[dashboard].value = dutyCycle;
+                
+                // Update individual dashboard displays
+                updateDashboardDisplay(pin, dutyCycle);
+                
+                // Send PWM command for each pin
+                promises.push(setPWM(pin, dutyCycle));
+            }
+            
             try {
-                const response = await fetch('/api/pwm/stop', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pin })
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    log(`✅ PWM Stopped: GPIO ${pin}`, 'SUCCESS');
-                } else {
-                    log(`❌ PWM Stop Failed: ${data.error}`, 'ERROR');
-                }
+                await Promise.all(promises);
+                log(`Master Control: All GPIO pins updated successfully`, 'SUCCESS');
             } catch (error) {
-                log(`❌ PWM Stop Request Failed: ${error.message}`, 'ERROR');
+                log(`Master Control Error: ${error.message}`, 'ERROR');
             }
         }
 
-        // Test stop all PWM
-        async function stopAllTest() {
-            log('Stopping all PWM signals...', 'INFO');
+        // Main slider real-time control
+        mainSlider.addEventListener('input', (e) => {
+            updateMainDisplay();
+            const pin = parseInt(mainPin.value);
+            const dutyCycle = parseInt(e.target.value);
+            const frequency = parseInt(mainFrequency.value);
+            
+            // Debounce the PWM calls
+            clearTimeout(mainSlider.debounceTimer);
+            mainSlider.debounceTimer = setTimeout(() => {
+                setPWM(pin, dutyCycle, frequency);
+            }, 100);
+        });
 
+        // Master slider real-time control
+        masterSlider.addEventListener('input', (e) => {
+            updateMasterDisplay();
+            const dutyCycle = parseInt(e.target.value);
+            
+            masterControlActive = true;
+            
+            // Debounce the PWM calls
+            clearTimeout(masterSlider.debounceTimer);
+            masterSlider.debounceTimer = setTimeout(() => {
+                setMasterPWM(dutyCycle);
+                masterControlActive = false;
+            }, 100);
+        });
+
+        // Master preset buttons
+        document.getElementById('masterPreset25').addEventListener('click', () => {
+            const value = 64; // 25% of 255
+            masterSlider.value = value;
+            updateMasterDisplay();
+            setMasterPWM(value);
+            log('Master Control: 25% preset applied to all GPIO pins', 'INFO');
+        });
+
+        document.getElementById('masterPreset50').addEventListener('click', () => {
+            const value = 128; // 50% of 255
+            masterSlider.value = value;
+            updateMasterDisplay();
+            setMasterPWM(value);
+            log('Master Control: 50% preset applied to all GPIO pins', 'INFO');
+        });
+
+        document.getElementById('masterPreset75').addEventListener('click', () => {
+            const value = 191; // 75% of 255
+            masterSlider.value = value;
+            updateMasterDisplay();
+            setMasterPWM(value);
+            log('Master Control: 75% preset applied to all GPIO pins', 'INFO');
+        });
+
+        document.getElementById('masterPreset100').addEventListener('click', () => {
+            const value = 255; // 100% of 255
+            masterSlider.value = value;
+            updateMasterDisplay();
+            setMasterPWM(value);
+            log('Master Control: 100% preset applied to all GPIO pins', 'INFO');
+        });
+
+        document.getElementById('masterStop').addEventListener('click', () => {
+            if (confirm('Stop all GPIO pins via master control?')) {
+                masterSlider.value = 0;
+                updateMasterDisplay();
+                setMasterPWM(0);
+                log('Master Control: Emergency stop - all GPIO pins stopped', 'WARNING');
+            }
+        });
+
+        // Main pin change handler
+        mainPin.addEventListener('change', updateMainDisplay);
+
+        // Dashboard slider handlers
+        document.querySelectorAll('.dashboard-slider').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const dashboard = e.target.dataset.slider;
+                const pin = dashboardState[dashboard].pin;
+                const dutyCycle = parseInt(e.target.value);
+                
+                // Update local state immediately for UI responsiveness
+                dashboardState[dashboard].value = dutyCycle;
+                updateDashboardDisplay(pin, dutyCycle);
+                
+                // Debounce the PWM calls
+                clearTimeout(slider.debounceTimer);
+                slider.debounceTimer = setTimeout(() => {
+                    setPWM(pin, dutyCycle);
+                }, 100);
+            });
+        });
+
+        // GPIO pin selector handlers
+        document.querySelectorAll('.gpio-selector').forEach(selector => {
+            selector.addEventListener('change', (e) => {
+                const dashboard = e.target.dataset.pinSelector;
+                const newPin = parseInt(e.target.value);
+                const oldPin = dashboardState[dashboard].pin;
+                
+                log(`Dashboard ${dashboard}: Changed from GPIO ${oldPin} to GPIO ${newPin}`, 'INFO');
+                
+                // Update dashboard state
+                dashboardState[dashboard].pin = newPin;
+                dashboardState[dashboard].value = 0;
+                
+                // Reset the dashboard display
+                updateDashboardDisplay(newPin, 0);
+                
+                // Update active pins list
+                updateActivePinsList();
+                
+                // Stop PWM on old pin
+                setPWM(oldPin, 0);
+            });
+        });
+
+        // Preset button handlers
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const dashboard = e.target.dataset.preset;
+                const value = parseInt(e.target.dataset.value);
+                const pin = dashboardState[dashboard].pin;
+                
+                log(`Preset ${Math.round((value/255)*100)}% applied to Dashboard ${dashboard} (GPIO ${pin})`, 'INFO');
+                
+                // Update slider and display
+                const slider = document.querySelector(`[data-slider="${dashboard}"]`);
+                if (slider) {
+                    slider.value = value;
+                }
+                
+                dashboardState[dashboard].value = value;
+                updateDashboardDisplay(pin, value);
+                
+                // Set PWM
+                setPWM(pin, value);
+            });
+        });
+
+        // Stop main PWM
+        document.getElementById('stopMainBtn').addEventListener('click', () => {
+            const pin = parseInt(mainPin.value);
+            setPWM(pin, 0);
+            mainSlider.value = 0;
+            updateMainDisplay();
+        });
+
+        // Stop all PWM
+        document.getElementById('stopAllBtn').addEventListener('click', async () => {
+            if (confirm('Stop all PWM signals?')) {
+                try {
+                    const response = await fetch('/api/pwm/stop-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        log(`All PWM stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
+                        
+                        // Reset all displays
+                        for (let dashboard in dashboardState) {
+                            dashboardState[dashboard].value = 0;
+                            updateDashboardDisplay(dashboardState[dashboard].pin, 0);
+                        }
+                        
+                        mainSlider.value = 0;
+                        updateMainDisplay();
+                    }
+                } catch (error) {
+                    log(`Stop All Error: ${error.message}`, 'ERROR');
+                }
+            }
+        });
+
+        // Get status
+        document.getElementById('getStatusBtn').addEventListener('click', async () => {
             try {
-                const response = await fetch('/api/pwm/stop-all', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
+                const response = await fetch('/api/pwm/status');
                 const data = await response.json();
                 
-                if (data.success) {
-                    log(`✅ All PWM Stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
-                } else {
-                    log(`❌ Stop All Failed: ${data.error}`, 'ERROR');
-                }
+                statusDisplay.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Status:</strong> ${data.success ? '✅ Ready' : '❌ Error'}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Mode:</strong> ${data.pigpioAvailable ? '🔧 Hardware Control' : '🖥️ Simulation'}
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>Active Pins:</strong> ${data.activePins.length}
+                    </div>
+                    <div style="font-size: 0.9rem; color: #666;">
+                        ${data.activePins.map(pin => `GPIO ${pin.pin}: ${pin.dutyPercentage}%`).join(', ') || 'None'}
+                    </div>
+                `;
+                
+                log('Status updated', 'INFO');
             } catch (error) {
-                log(`❌ Stop All Request Failed: ${error.message}`, 'ERROR');
+                log(`Status Error: ${error.message}`, 'ERROR');
             }
-        }
+        });
 
         // Clear log
-        function clearLog() {
-            document.getElementById('testLog').innerHTML = '';
-        }
-
-        // Set up event listeners
-        function setupEventListeners() {
-            testApiStatusBtn.addEventListener('click', testApiStatus);
-            testApiConnectionBtn.addEventListener('click', testApiConnection);
-            setPwmBtn.addEventListener('click', setPwmTest);
-            stopPwmBtn.addEventListener('click', stopPwmTest);
-            stopAllBtn.addEventListener('click', stopAllTest);
-            getStatusBtn.addEventListener('click', testApiStatus);
-            clearLogBtn.addEventListener('click', clearLog);
-            testDutyCycle.addEventListener('input', updateDutyDisplay);
-        }
+        document.getElementById('clearLogBtn').addEventListener('click', () => {
+            logElement.innerHTML = '';
+            log('Log cleared', 'INFO');
+        });
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            setupEventListeners();
-            log('🧪 PWM Test Page loaded', 'INFO');
-            log(`📡 Using relative URLs (same origin)`, 'INFO');
-            log(`🌐 Current location: ${window.location.href}`, 'INFO');
-            log('Click "Test API Status" to verify connection', 'INFO');
-            updateDutyDisplay();
-        });
+        updateMainDisplay();
+        updateMasterDisplay();
+        updateActivePinsList();
+        log('PWM Control Dashboard initialized', 'INFO');
+        log('WebSocket connection established for real-time control', 'WEBSOCKET');
+        log('Master Speed Control ready - controls all 4 GPIO pins simultaneously', 'INFO');
+        
+        // Initial status fetch
+        setTimeout(() => {
+            document.getElementById('getStatusBtn').click();
+        }, 1000);
     </script>
 </body>
 </html> 
