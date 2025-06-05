@@ -1,15 +1,30 @@
-// Sensor Routes Module - GPIO input monitoring for wheel encoders
-// This module handles reading sensor inputs from wheel encoders or other sensors
+// Sensor Routes Module - Real GPIO input monitoring for wheel encoders
+// This module handles reading sensor inputs from wheel encoders using polling
 
 const express = require('express');
 const router = express.Router();
 
+// Initialize pigpio for real GPIO monitoring
+let Gpio;
+let pigpioAvailable = false;
+
+try {
+    Gpio = require('pigpio').Gpio;
+    pigpioAvailable = true;
+    console.log('📡 Sensor routes: pigpio library loaded for real GPIO monitoring');
+} catch (error) {
+    console.log('📡 Sensor routes: pigpio not available - cannot monitor GPIO inputs');
+    console.log('   To enable real GPIO: sudo apt-get install pigpio && sudo systemctl start pigpio');
+}
+
 // Global sensor state - tracks all active sensor monitoring
 const sensorState = {
-    activeSensors: new Map(), // Map of sensor -> { pin, enabled, pulses, rate, lastPulse, interval }
+    activeSensors: new Map(), // Map of sensor -> { pin, enabled, pulses, rate, lastPulse, gpio, polling }
     pulseCounts: new Map(),   // Map of pin -> pulse count
     pulseRates: new Map(),    // Map of pin -> pulses per second
-    lastPulseTimes: new Map() // Map of pin -> last pulse timestamp
+    lastPulseTimes: new Map(), // Map of pin -> last pulse timestamp
+    lastPinStates: new Map(), // Map of pin -> last digital state (for edge detection)
+    pollingIntervals: new Map() // Map of pin -> polling interval reference
 };
 
 // Socket.IO instance for real-time updates
@@ -21,35 +36,97 @@ function setSocket(socketInstance) {
     console.log('📡 Sensor routes: Socket.IO instance set for real-time sensor updates');
 }
 
-// Simulate GPIO input monitoring (replace with actual GPIO implementation)
+// Real GPIO input monitoring using polling (more reliable than interrupts)
 function startGPIOMonitoring(pin, sensor) {
-    console.log(`📡 Starting GPIO monitoring for pin ${pin} (Sensor ${sensor})`);
+    console.log(`📡 Starting real GPIO monitoring for pin ${pin} (Sensor ${sensor})`);
     
-    // In a real implementation, this would set up GPIO interrupt monitoring
-    // For simulation, we'll generate random pulse data
-    const interval = setInterval(() => {
-        if (sensorState.activeSensors.get(sensor)?.enabled) {
-            simulatePulse(pin, sensor);
+    if (!pigpioAvailable) {
+        console.log(`❌ pigpio not available, cannot monitor GPIO ${pin}.`);
+        return false;
+    }
+    
+    try {
+        // Create GPIO instance for input monitoring
+        const gpio = new Gpio(pin, {
+            mode: Gpio.INPUT,
+            pullUpDown: Gpio.PUD_UP // Use internal pull-up resistor
+        });
+        
+        // Initialize pin state tracking
+        const initialState = gpio.digitalRead();
+        sensorState.lastPinStates.set(pin, initialState);
+        
+        console.log(`🔧 GPIO ${pin} initialized: Current state = ${initialState}`);
+        
+        // Start polling for state changes (edge detection)
+        const pollingInterval = setInterval(() => {
+            if (sensorState.activeSensors.get(sensor)?.enabled) {
+                pollGPIOState(pin, sensor, gpio);
+            }
+        }, 10); // Poll every 10ms for fast response
+        
+        // Store references for cleanup
+        sensorState.pollingIntervals.set(pin, pollingInterval);
+        
+        // Update sensor state
+        if (sensorState.activeSensors.has(sensor)) {
+            const sensorData = sensorState.activeSensors.get(sensor);
+            sensorData.gpio = gpio;
+            sensorData.polling = pollingInterval;
         }
-    }, Math.random() * 2000 + 500); // Random interval between 500ms-2.5s
-    
-    // Store the interval reference
-    if (sensorState.activeSensors.has(sensor)) {
-        sensorState.activeSensors.get(sensor).interval = interval;
+        
+        console.log(`✅ Real GPIO monitoring active on pin ${pin} for Sensor ${sensor} (Polling mode, 10ms interval)`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Failed to setup GPIO monitoring on pin ${pin}:`, error);
+        return false;
+    }
+}
+
+// Poll GPIO state and detect edges (rising edge = pulse)
+function pollGPIOState(pin, sensor, gpio) {
+    try {
+        const currentState = gpio.digitalRead();
+        const lastState = sensorState.lastPinStates.get(pin);
+        
+        // Detect rising edge (0 -> 1 transition = wheel encoder pulse)
+        if (lastState === 0 && currentState === 1) {
+            detectRealPulse(pin, sensor);
+        }
+        
+        // Update last state
+        sensorState.lastPinStates.set(pin, currentState);
+        
+    } catch (error) {
+        console.error(`❌ Error polling GPIO ${pin}:`, error);
     }
 }
 
 function stopGPIOMonitoring(sensor) {
     const sensorData = sensorState.activeSensors.get(sensor);
-    if (sensorData && sensorData.interval) {
-        clearInterval(sensorData.interval);
-        sensorData.interval = null;
-        console.log(`📡 Stopped GPIO monitoring for Sensor ${sensor}`);
+    if (!sensorData) return;
+    
+    const pin = sensorData.pin;
+    
+    // Stop polling
+    if (sensorState.pollingIntervals.has(pin)) {
+        clearInterval(sensorState.pollingIntervals.get(pin));
+        sensorState.pollingIntervals.delete(pin);
+        console.log(`📡 Stopped GPIO polling for Sensor ${sensor} (GPIO ${pin})`);
     }
+    
+    // Clean up GPIO reference (don't terminate, might be used elsewhere)
+    if (sensorData.gpio) {
+        sensorData.gpio = null;
+    }
+    
+    // Clear state tracking
+    sensorState.lastPinStates.delete(pin);
 }
 
-// Simulate a sensor pulse (replace with actual GPIO pulse detection)
-function simulatePulse(pin, sensor) {
+// Handle real GPIO pulse detection
+function detectRealPulse(pin, sensor) {
     const timestamp = Date.now();
     
     // Increment pulse count
@@ -63,7 +140,9 @@ function simulatePulse(pin, sensor) {
     
     if (lastTime) {
         const timeDiff = (timestamp - lastTime) / 1000; // Convert to seconds
-        rate = Math.round(1 / timeDiff); // Pulses per second
+        if (timeDiff > 0) {
+            rate = Math.round(1 / timeDiff); // Pulses per second
+        }
     }
     
     sensorState.lastPulseTimes.set(pin, timestamp);
@@ -84,11 +163,12 @@ function simulatePulse(pin, sensor) {
             pin: pin,
             pulses: newCount,
             rate: rate,
-            timestamp: timestamp
+            timestamp: timestamp,
+            source: 'real_gpio'
         });
     }
     
-    console.log(`📊 Sensor ${sensor} (GPIO ${pin}): Pulse #${newCount}, Rate: ${rate}/sec`);
+    console.log(`🔄 REAL PULSE: Sensor ${sensor} (GPIO ${pin}): Pulse #${newCount}, Rate: ${rate}/sec`);
 }
 
 // Enable sensor monitoring
@@ -103,6 +183,13 @@ router.post('/enable', (req, res) => {
             });
         }
         
+        if (!pigpioAvailable) {
+            return res.status(500).json({
+                success: false,
+                error: 'GPIO monitoring not available - pigpio library not loaded'
+            });
+        }
+        
         console.log(`📡 Enabling sensor monitoring: Sensor ${sensor} on GPIO ${pin}`);
         
         // Initialize sensor data
@@ -112,7 +199,8 @@ router.post('/enable', (req, res) => {
             pulses: 0,
             rate: 0,
             lastPulse: null,
-            interval: null
+            gpio: null,
+            polling: null
         });
         
         // Initialize counters for this pin
@@ -121,12 +209,19 @@ router.post('/enable', (req, res) => {
         sensorState.lastPulseTimes.set(pin, null);
         
         // Start GPIO monitoring
-        startGPIOMonitoring(pin, sensor);
+        const success = startGPIOMonitoring(pin, sensor);
+        
+        if (!success) {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to initialize GPIO monitoring'
+            });
+        }
         
         // Broadcast sensor state update
         if (io) {
             io.emit('sensorUpdate', {
-                message: `Sensor ${sensor} (GPIO ${pin}) enabled`,
+                message: `Sensor ${sensor} (GPIO ${pin}) enabled - Real GPIO monitoring active`,
                 sensor: sensor,
                 enabled: true
             });
@@ -136,7 +231,8 @@ router.post('/enable', (req, res) => {
             success: true,
             message: `Sensor ${sensor} monitoring enabled on GPIO ${pin}`,
             sensor: sensor,
-            pin: pin
+            pin: pin,
+            mode: 'real_gpio_polling'
         });
         
     } catch (error) {
@@ -259,7 +355,8 @@ router.get('/status', (req, res) => {
                 enabled: data.enabled,
                 pulses: data.pulses,
                 rate: data.rate,
-                lastPulse: data.lastPulse
+                lastPulse: data.lastPulse,
+                mode: 'real_gpio_polling'
             });
         });
         
@@ -267,6 +364,7 @@ router.get('/status', (req, res) => {
             success: true,
             activeSensors: sensors,
             totalSensors: sensorState.activeSensors.size,
+            pigpioAvailable: pigpioAvailable,
             message: 'Sensor status retrieved successfully'
         });
         
@@ -288,11 +386,18 @@ function cleanup() {
         stopGPIOMonitoring(sensor);
     });
     
+    // Clear all intervals
+    sensorState.pollingIntervals.forEach((interval, pin) => {
+        clearInterval(interval);
+    });
+    
     // Clear all state
     sensorState.activeSensors.clear();
     sensorState.pulseCounts.clear();
     sensorState.pulseRates.clear();
     sensorState.lastPulseTimes.clear();
+    sensorState.lastPinStates.clear();
+    sensorState.pollingIntervals.clear();
     
     console.log('✅ Sensor monitoring cleanup completed');
 }

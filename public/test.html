@@ -708,25 +708,25 @@
         <div class="control-card slide-in">
             <h2 class="card-title">📡 Sensor Input Monitoring</h2>
             <div class="gpio-dashboards" id="sensorDashboards">
-                <!-- Sensor 1 -->
+                <!-- Sensor 1 (Default to GPIO 23 for wheel rotation testing) -->
                 <div class="gpio-dashboard sensor-dashboard" data-sensor="1">
                     <div class="dashboard-header">
-                        <span class="dashboard-title">📊 Sensor #1</span>
+                        <span class="dashboard-title">📊 Sensor #1 (Wheel Encoder)</span>
                         <select class="sensor-selector" data-sensor-pin="1">
-                            <option value="2" selected>GPIO 2 (Input)</option>
+                            <option value="23" selected>GPIO 23 (Input) 🔄</option>
+                            <option value="2">GPIO 2 (Input)</option>
                             <option value="3">GPIO 3 (Input)</option>
                             <option value="4">GPIO 4 (Input)</option>
                             <option value="17">GPIO 17 (Input)</option>
                             <option value="27">GPIO 27 (Input)</option>
                             <option value="22">GPIO 22 (Input)</option>
-                            <option value="23">GPIO 23 (Input)</option>
                             <option value="24">GPIO 24 (Input)</option>
                         </select>
                     </div>
                     
                     <div class="sensor-status">
                         <div class="status-indicator sensor-indicator" data-sensor-indicator="1"></div>
-                        <span class="status-text">Monitoring GPIO 2</span>
+                        <span class="status-text">Monitoring GPIO 23 - Real Input</span>
                     </div>
                     
                     <div class="sensor-readings">
@@ -885,7 +885,7 @@
             
             <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
                 <strong>📋 Active Sensor Pins:</strong>
-                <div id="activeSensorsList">GPIO 2, GPIO 3, GPIO 27, GPIO 22</div>
+                <div id="activeSensorsList">GPIO 23, GPIO 3, GPIO 27, GPIO 22</div>
             </div>
         </div>
 
@@ -928,9 +928,9 @@
             4: { pin: 19, value: 0 }
         };
 
-        // Sensor state
+        // Sensor state (Sensor 1 defaults to GPIO 23 for wheel rotation testing)
         const sensorState = {
-            1: { pin: 2, enabled: false, pulses: 0, rate: 0, lastPulse: null },
+            1: { pin: 23, enabled: false, pulses: 0, rate: 0, lastPulse: null },
             2: { pin: 3, enabled: false, pulses: 0, rate: 0, lastPulse: null },
             3: { pin: 27, enabled: false, pulses: 0, rate: 0, lastPulse: null },
             4: { pin: 22, enabled: false, pulses: 0, rate: 0, lastPulse: null }
@@ -1138,7 +1138,7 @@
         // Real-time sensor updates via WebSocket
         socket.on('sensorPulse', (data) => {
             const { sensor, pin, pulses, rate, timestamp } = data;
-            log(`Sensor Pulse: Sensor ${sensor} (GPIO ${pin}) - Total: ${pulses}, Rate: ${rate}/sec`, 'WEBSOCKET');
+            log(`🔄 WHEEL ROTATION: Sensor ${sensor} (GPIO ${pin}) - Total: ${pulses}, Rate: ${rate}/sec`, 'WEBSOCKET');
             updateSensorDisplay(sensor, pulses, rate, timestamp);
         });
 
@@ -1260,7 +1260,7 @@
             activeSensorsList.textContent = sensors.join(', ');
         }
 
-        // Update sensor display
+        // Update sensor display for real wheel rotation
         function updateSensorDisplay(sensor, pulses, rate, timestamp) {
             const pulsesElement = document.getElementById(`sensorPulses${sensor}`);
             const rateElement = document.getElementById(`sensorRate${sensor}`);
@@ -1269,13 +1269,16 @@
             
             if (pulsesElement) {
                 pulsesElement.textContent = pulses;
-                // Add pulse animation
+                // Green color for real GPIO wheel rotation
+                pulsesElement.style.color = '#28a745';
                 pulsesElement.classList.add('pulse-animation');
                 setTimeout(() => pulsesElement.classList.remove('pulse-animation'), 300);
             }
             
             if (rateElement) {
                 rateElement.textContent = rate;
+                // Green color for real GPIO wheel rotation
+                rateElement.style.color = '#28a745';
             }
             
             if (timeElement && timestamp) {
@@ -1283,12 +1286,18 @@
                 timeElement.textContent = time;
             }
             
-            if (indicatorElement && rate > 0) {
-                indicatorElement.classList.add('active');
+            if (indicatorElement) {
+                if (rate > 0) {
+                    indicatorElement.classList.add('active');
+                    // Green glow for wheel rotation detection
+                    indicatorElement.style.boxShadow = '0 0 15px rgba(40, 167, 69, 1.0)';
+                }
+                
                 // Remove active class after 1 second if no more pulses
                 setTimeout(() => {
                     if (sensorState[sensor].rate === 0) {
                         indicatorElement.classList.remove('active');
+                        indicatorElement.style.boxShadow = '';
                     }
                 }, 1000);
             }
