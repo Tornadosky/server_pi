@@ -420,6 +420,84 @@
             100% { transform: scale(1); }
         }
 
+        /* RPM Controller Styles */
+        .rpm-display-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .rpm-metric {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            border: 2px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        .rpm-metric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .rpm-metric .metric-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .rpm-metric .metric-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .rpm-control .control-row {
+            margin: 15px 0;
+        }
+
+        .rpm-control input[type="number"] {
+            width: 80px;
+            margin-left: 10px;
+        }
+
+        /* RPM Status indicators */
+        .rpm-status.active {
+            border-left: 4px solid #28a745;
+            background: #d4edda !important;
+        }
+
+        .rpm-status.error {
+            border-left: 4px solid #dc3545;
+            background: #f8d7da !important;
+        }
+
+        /* Control gain display */
+        #gainDisplay {
+            min-width: 30px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .rpm-display-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .rpm-metric {
+                padding: 12px;
+            }
+            
+            .rpm-metric .metric-value {
+                font-size: 1.5rem;
+            }
+        }
+
         /* Log Section */
         .log-section {
             margin-top: 30px;
@@ -673,6 +751,78 @@
             </div>
         </div>
 
+        <!-- RPM Controller -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">🎯 RPM Controller (Closed-Loop)</h2>
+            <div class="rpm-control">
+                <div class="control-row">
+                    <span class="control-label">Target Pin:</span>
+                    <select id="rpmControlPin">
+                        <option value="19" selected>GPIO 19 (Front Left)</option>
+                        <option value="13">GPIO 13 (Front Right)</option>
+                        <option value="12">GPIO 12 (Rear Right)</option>
+                        <option value="18">GPIO 18 (Rear Left)</option>
+                    </select>
+                    <span class="control-label">Sensor:</span>
+                    <select id="rpmSensorSelect">
+                        <option value="1" selected>Sensor #1 (GPIO 23 - Front Left)</option>
+                        <option value="2">Sensor #2 (GPIO 22 - Front Right)</option>
+                        <option value="3">Sensor #3 (GPIO 4 - Rear Right)</option>
+                        <option value="4">Sensor #4 (GPIO 27 - Rear Left)</option>
+                    </select>
+                </div>
+                
+                <div class="rpm-display-grid">
+                    <div class="rpm-metric">
+                        <div class="metric-label">Target RPM</div>
+                        <div class="metric-value" id="targetRpmDisplay">0</div>
+                    </div>
+                    <div class="rpm-metric">
+                        <div class="metric-label">Current RPM</div>
+                        <div class="metric-value" id="currentRpmDisplay">0</div>
+                    </div>
+                    <div class="rpm-metric">
+                        <div class="metric-label">PWM Output</div>
+                        <div class="metric-value" id="rpmPwmDisplay">0 (0%)</div>
+                    </div>
+                    <div class="rpm-metric">
+                        <div class="metric-label">Error</div>
+                        <div class="metric-value" id="rpmErrorDisplay">0</div>
+                    </div>
+                </div>
+                
+                <div class="control-row">
+                    <span class="control-label">Desired RPM:</span>
+                    <input type="range" id="rpmSlider" class="pwm-slider" min="0" max="100" value="0" step="1">
+                    <input type="number" id="rpmInput" value="0" min="0" max="100" step="1">
+                    <span>RPM</span>
+                </div>
+                
+                <div class="control-row">
+                    <span class="control-label">Control Gain:</span>
+                    <input type="range" id="controlGain" min="0.5" max="5.0" step="0.1" value="2.0">
+                    <span id="gainDisplay">2.0</span>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn" id="startRpmControl">🎯 Start RPM Control</button>
+                    <button class="action-btn secondary" id="stopRpmControl">⏹️ Stop Control</button>
+                    <button class="action-btn" id="rpmPreset15">15 RPM</button>
+                    <button class="action-btn" id="rpmPreset30">30 RPM</button>
+                    <button class="action-btn" id="rpmPreset50">50 RPM</button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem;">
+                    <div class="rpm-status" id="rpmStatus">
+                        <strong>Status:</strong> <span style="color: #6c757d;">Stopped</span><br>
+                        <strong>Mode:</strong> Server-side closed-loop control (45 pulses/rotation)<br>
+                        <strong>Control:</strong> Enhanced PID with smooth operation<br>
+                        <strong>Update Rate:</strong> 100ms backend control loop
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Master Speed Control -->
         <div class="control-card slide-in">
             <h2 class="card-title">🚀 Master Speed Control</h2>
@@ -699,7 +849,7 @@
                 
                 <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
                     <strong>📋 Active GPIO Pins:</strong>
-                    <div id="activePinsList">GPIO 18, GPIO 12, GPIO 13, GPIO 19</div>
+                    <div id="activePinsList">GPIO 19 (FL), GPIO 13 (FR), GPIO 12 (RR), GPIO 18 (RL)</div>
                 </div>
             </div>
         </div>
@@ -711,22 +861,22 @@
                 <!-- Sensor 1 (Default to GPIO 23 for wheel rotation testing) -->
                 <div class="gpio-dashboard sensor-dashboard" data-sensor="1">
                     <div class="dashboard-header">
-                        <span class="dashboard-title">📊 Sensor #1 (Wheel Encoder)</span>
+                        <span class="dashboard-title">📊 Sensor #1 (Front Left)</span>
                         <select class="sensor-selector" data-sensor-pin="1">
-                            <option value="23" selected>GPIO 23 (Input) 🔄</option>
+                            <option value="23" selected>GPIO 23 (Front Left) 🔄</option>
+                            <option value="22">GPIO 22 (Front Right)</option>
+                            <option value="4">GPIO 4 (Rear Right)</option>
+                            <option value="27">GPIO 27 (Rear Left)</option>
                             <option value="2">GPIO 2 (Input)</option>
                             <option value="3">GPIO 3 (Input)</option>
-                            <option value="4">GPIO 4 (Input)</option>
                             <option value="17">GPIO 17 (Input)</option>
-                            <option value="27">GPIO 27 (Input)</option>
-                            <option value="22">GPIO 22 (Input)</option>
                             <option value="24">GPIO 24 (Input)</option>
                         </select>
                     </div>
                     
                     <div class="sensor-status">
                         <div class="status-indicator sensor-indicator" data-sensor-indicator="1"></div>
-                        <span class="status-text">Monitoring GPIO 23 - Real Input</span>
+                        <span class="status-text">Front Left Wheel - GPIO 23</span>
                     </div>
                     
                     <div class="sensor-readings">
@@ -753,22 +903,22 @@
                 <!-- Sensor 2 -->
                 <div class="gpio-dashboard sensor-dashboard" data-sensor="2">
                     <div class="dashboard-header">
-                        <span class="dashboard-title">📊 Sensor #2</span>
+                        <span class="dashboard-title">📊 Sensor #2 (Front Right)</span>
                         <select class="sensor-selector" data-sensor-pin="2">
-                            <option value="3" selected>GPIO 3 (Input)</option>
+                            <option value="22" selected>GPIO 22 (Front Right)</option>
+                            <option value="23">GPIO 23 (Front Left)</option>
+                            <option value="4">GPIO 4 (Rear Right)</option>
+                            <option value="27">GPIO 27 (Rear Left)</option>
                             <option value="2">GPIO 2 (Input)</option>
-                            <option value="4">GPIO 4 (Input)</option>
+                            <option value="3">GPIO 3 (Input)</option>
                             <option value="17">GPIO 17 (Input)</option>
-                            <option value="27">GPIO 27 (Input)</option>
-                            <option value="22">GPIO 22 (Input)</option>
-                            <option value="23">GPIO 23 (Input)</option>
                             <option value="24">GPIO 24 (Input)</option>
                         </select>
                     </div>
                     
                     <div class="sensor-status">
                         <div class="status-indicator sensor-indicator" data-sensor-indicator="2"></div>
-                        <span class="status-text">Monitoring GPIO 3</span>
+                        <span class="status-text">Front Right Wheel - GPIO 22</span>
                     </div>
                     
                     <div class="sensor-readings">
@@ -795,22 +945,22 @@
                 <!-- Sensor 3 -->
                 <div class="gpio-dashboard sensor-dashboard" data-sensor="3">
                     <div class="dashboard-header">
-                        <span class="dashboard-title">📊 Sensor #3</span>
+                        <span class="dashboard-title">📊 Sensor #3 (Rear Right)</span>
                         <select class="sensor-selector" data-sensor-pin="3">
-                            <option value="27" selected>GPIO 27 (Input)</option>
+                            <option value="4" selected>GPIO 4 (Rear Right)</option>
+                            <option value="23">GPIO 23 (Front Left)</option>
+                            <option value="22">GPIO 22 (Front Right)</option>
+                            <option value="27">GPIO 27 (Rear Left)</option>
                             <option value="2">GPIO 2 (Input)</option>
                             <option value="3">GPIO 3 (Input)</option>
-                            <option value="4">GPIO 4 (Input)</option>
                             <option value="17">GPIO 17 (Input)</option>
-                            <option value="22">GPIO 22 (Input)</option>
-                            <option value="23">GPIO 23 (Input)</option>
                             <option value="24">GPIO 24 (Input)</option>
                         </select>
                     </div>
                     
                     <div class="sensor-status">
                         <div class="status-indicator sensor-indicator" data-sensor-indicator="3"></div>
-                        <span class="status-text">Monitoring GPIO 27</span>
+                        <span class="status-text">Rear Right Wheel - GPIO 4</span>
                     </div>
                     
                     <div class="sensor-readings">
@@ -837,22 +987,22 @@
                 <!-- Sensor 4 -->
                 <div class="gpio-dashboard sensor-dashboard" data-sensor="4">
                     <div class="dashboard-header">
-                        <span class="dashboard-title">📊 Sensor #4</span>
+                        <span class="dashboard-title">📊 Sensor #4 (Rear Left)</span>
                         <select class="sensor-selector" data-sensor-pin="4">
-                            <option value="22" selected>GPIO 22 (Input)</option>
+                            <option value="27" selected>GPIO 27 (Rear Left)</option>
+                            <option value="23">GPIO 23 (Front Left)</option>
+                            <option value="22">GPIO 22 (Front Right)</option>
+                            <option value="4">GPIO 4 (Rear Right)</option>
                             <option value="2">GPIO 2 (Input)</option>
                             <option value="3">GPIO 3 (Input)</option>
-                            <option value="4">GPIO 4 (Input)</option>
                             <option value="17">GPIO 17 (Input)</option>
-                            <option value="27">GPIO 27 (Input)</option>
-                            <option value="23">GPIO 23 (Input)</option>
                             <option value="24">GPIO 24 (Input)</option>
                         </select>
                     </div>
                     
                     <div class="sensor-status">
                         <div class="status-indicator sensor-indicator" data-sensor-indicator="4"></div>
-                        <span class="status-text">Monitoring GPIO 22</span>
+                        <span class="status-text">Rear Left Wheel - GPIO 27</span>
                     </div>
                     
                     <div class="sensor-readings">
@@ -885,7 +1035,7 @@
             
             <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
                 <strong>📋 Active Sensor Pins:</strong>
-                <div id="activeSensorsList">GPIO 23, GPIO 3, GPIO 27, GPIO 22</div>
+                <div id="activeSensorsList">GPIO 23 (FL), GPIO 22 (FR), GPIO 4 (RR), GPIO 27 (RL)</div>
             </div>
         </div>
 
@@ -920,24 +1070,36 @@
         // Sensor elements
         const activeSensorsList = document.getElementById('activeSensorsList');
 
-        // GPIO dashboard state
+        // GPIO dashboard state (Updated for your wheel mapping)
         const dashboardState = {
-            1: { pin: 18, value: 0 },
-            2: { pin: 12, value: 0 },
-            3: { pin: 13, value: 0 },
-            4: { pin: 19, value: 0 }
+            1: { pin: 19, value: 0 }, // Front Left
+            2: { pin: 13, value: 0 }, // Front Right  
+            3: { pin: 12, value: 0 }, // Rear Right
+            4: { pin: 18, value: 0 }  // Rear Left
         };
 
-        // Sensor state (Sensor 1 defaults to GPIO 23 for wheel rotation testing)
+        // Sensor state (Updated for your wheel mapping)
         const sensorState = {
-            1: { pin: 23, enabled: false, pulses: 0, rate: 0, lastPulse: null },
-            2: { pin: 3, enabled: false, pulses: 0, rate: 0, lastPulse: null },
-            3: { pin: 27, enabled: false, pulses: 0, rate: 0, lastPulse: null },
-            4: { pin: 22, enabled: false, pulses: 0, rate: 0, lastPulse: null }
+            1: { pin: 23, enabled: false, pulses: 0, rate: 0, lastPulse: null }, // Front Left 
+            2: { pin: 22, enabled: false, pulses: 0, rate: 0, lastPulse: null }, // Front Right
+            3: { pin: 4, enabled: false, pulses: 0, rate: 0, lastPulse: null },  // Rear Right
+            4: { pin: 27, enabled: false, pulses: 0, rate: 0, lastPulse: null }  // Rear Left
         };
 
         // Master control state
         let masterControlActive = false;
+
+        // RPM Controller state (frontend - for display only)
+        const rpmController = {
+            active: false,
+            targetRPM: 0,
+            currentRPM: 0,
+            currentPWM: 0,
+            error: 0,
+            controlPin: 19, // Front Left wheel by default
+            sensorNumber: 1, // Front Left sensor by default
+            gain: 2.0
+        };
 
         // GPIO pin management - track used pins to prevent conflicts
         const availablePins = {
@@ -1142,6 +1304,26 @@
             updateSensorDisplay(sensor, pulses, rate, timestamp);
         });
 
+        // Real-time RPM control status updates from server
+        socket.on('rpmStatus', (data) => {
+            const { active, targetRPM, currentRPM, currentPWM, error, controlPin, sensorNumber } = data;
+            
+            // Update local state
+            rpmController.active = active;
+            rpmController.targetRPM = targetRPM;
+            rpmController.currentRPM = currentRPM;
+            rpmController.currentPWM = currentPWM;
+            rpmController.error = error;
+            rpmController.controlPin = controlPin;
+            rpmController.sensorNumber = sensorNumber;
+            
+            // Update display
+            updateRPMDisplay();
+            
+            // Update status indicator
+            updateRPMStatusDisplay();
+        });
+
         socket.on('sensorUpdate', (data) => {
             log(`Sensor Update: ${data.message}`, 'WEBSOCKET');
             if (data.sensorStates) {
@@ -1259,6 +1441,132 @@
             const sensors = Object.values(sensorState).map(state => `GPIO ${state.pin}`);
             activeSensorsList.textContent = sensors.join(', ');
         }
+
+        // RPM Controller Functions (Server-side API calls)
+        async function startRPMControl() {
+            try {
+                const response = await fetch('/api/rpm-control/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        targetRPM: rpmController.targetRPM,
+                        controlPin: rpmController.controlPin,
+                        sensorNumber: rpmController.sensorNumber,
+                        gain: rpmController.gain
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log(`RPM Control Started: ${data.message}`, 'SUCCESS');
+                } else {
+                    log(`RPM Control Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`RPM Control Error: ${error.message}`, 'ERROR');
+            }
+        }
+
+        async function stopRPMControl() {
+            try {
+                const response = await fetch('/api/rpm-control/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log('RPM Control Stopped', 'INFO');
+                } else {
+                    log(`RPM Control Stop Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`RPM Control Stop Error: ${error.message}`, 'ERROR');
+            }
+        }
+
+        async function setTargetRPM(rpm) {
+            try {
+                const response = await fetch('/api/rpm-control/set-rpm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetRPM: rpm })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log(`Target RPM updated: ${rpm} RPM`, 'INFO');
+                } else {
+                    log(`RPM Update Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`RPM Update Error: ${error.message}`, 'ERROR');
+            }
+        }
+
+        async function updateRPMParams() {
+            try {
+                const response = await fetch('/api/rpm-control/set-params', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        gain: rpmController.gain,
+                        controlPin: rpmController.controlPin,
+                        sensorNumber: rpmController.sensorNumber
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log('RPM Control parameters updated', 'INFO');
+                } else {
+                    log(`RPM Params Update Failed: ${data.error}`, 'ERROR');
+                }
+            } catch (error) {
+                log(`RPM Params Error: ${error.message}`, 'ERROR');
+            }
+        }
+
+        function updateRPMDisplay() {
+            document.getElementById('targetRpmDisplay').textContent = rpmController.targetRPM;
+            document.getElementById('currentRpmDisplay').textContent = rpmController.currentRPM;
+            document.getElementById('rpmPwmDisplay').textContent = `${rpmController.currentPWM} (${Math.round((rpmController.currentPWM/255)*100)}%)`;
+            document.getElementById('rpmErrorDisplay').textContent = rpmController.error;
+            
+            // Color coding based on error
+            const errorElement = document.getElementById('rpmErrorDisplay');
+            if (Math.abs(rpmController.error) < 2) {
+                errorElement.style.color = '#28a745'; // Green - good
+            } else if (Math.abs(rpmController.error) < 5) {
+                errorElement.style.color = '#ffc107'; // Yellow - okay
+            } else {
+                errorElement.style.color = '#dc3545'; // Red - large error
+            }
+        }
+
+        function updateRPMStatusDisplay() {
+            const statusElement = document.getElementById('rpmStatus');
+            
+            if (rpmController.active) {
+                statusElement.innerHTML = `
+                    <strong>Status:</strong> <span style="color: #28a745;">Active - Server-side Enhanced PID Control on GPIO ${rpmController.controlPin}</span><br>
+                    <strong>Mode:</strong> Server-side closed-loop control (45 pulses/rotation)<br>
+                    <strong>Control:</strong> Enhanced PID with smooth operation<br>
+                    <strong>Update Rate:</strong> 100ms backend control loop
+                `;
+                statusElement.classList.add('active');
+            } else {
+                statusElement.innerHTML = `
+                    <strong>Status:</strong> <span style="color: #6c757d;">Stopped</span><br>
+                    <strong>Mode:</strong> Server-side closed-loop control (45 pulses/rotation)<br>
+                    <strong>Control:</strong> Enhanced PID with smooth operation<br>
+                    <strong>Update Rate:</strong> 100ms backend control loop
+                `;
+                statusElement.classList.remove('active');
+            }
+        }
+
+
 
         // Update sensor display for real wheel rotation
         function updateSensorDisplay(sensor, pulses, rate, timestamp) {
@@ -1709,16 +2017,110 @@
             log('Log cleared', 'INFO');
         });
 
+        // RPM Controller Event Handlers
+        document.getElementById('rpmSlider').addEventListener('input', (e) => {
+            const rpm = parseInt(e.target.value);
+            rpmController.targetRPM = rpm;
+            document.getElementById('rpmInput').value = rpm;
+            document.getElementById('targetRpmDisplay').textContent = rpm;
+            
+            // If control is active, update server immediately
+            if (rpmController.active) {
+                setTargetRPM(rpm);
+            }
+        });
+
+        document.getElementById('rpmInput').addEventListener('input', (e) => {
+            const rpm = parseInt(e.target.value) || 0;
+            rpmController.targetRPM = rpm;
+            document.getElementById('rpmSlider').value = rpm;
+            document.getElementById('targetRpmDisplay').textContent = rpm;
+            
+            // If control is active, update server immediately
+            if (rpmController.active) {
+                setTargetRPM(rpm);
+            }
+        });
+
+        document.getElementById('controlGain').addEventListener('input', (e) => {
+            rpmController.gain = parseFloat(e.target.value);
+            document.getElementById('gainDisplay').textContent = rpmController.gain;
+            
+            // Update server parameters
+            updateRPMParams();
+        });
+
+        document.getElementById('rpmControlPin').addEventListener('change', (e) => {
+            rpmController.controlPin = parseInt(e.target.value);
+            log(`RPM Controller: Pin changed to GPIO ${rpmController.controlPin}`, 'INFO');
+            
+            // Update server parameters
+            updateRPMParams();
+        });
+
+        document.getElementById('rpmSensorSelect').addEventListener('change', (e) => {
+            rpmController.sensorNumber = parseInt(e.target.value);
+            log(`RPM Controller: Sensor changed to Sensor ${rpmController.sensorNumber}`, 'INFO');
+            
+            // Update server parameters
+            updateRPMParams();
+        });
+
+        document.getElementById('startRpmControl').addEventListener('click', startRPMControl);
+        document.getElementById('stopRpmControl').addEventListener('click', stopRPMControl);
+
+        // RPM Preset buttons
+        document.getElementById('rpmPreset15').addEventListener('click', () => {
+            rpmController.targetRPM = 15;
+            document.getElementById('rpmSlider').value = 15;
+            document.getElementById('rpmInput').value = 15;
+            document.getElementById('targetRpmDisplay').textContent = 15;
+            log('RPM Preset: 15 RPM selected', 'INFO');
+            
+            // Update server if control is active
+            if (rpmController.active) {
+                setTargetRPM(15);
+            }
+        });
+
+        document.getElementById('rpmPreset30').addEventListener('click', () => {
+            rpmController.targetRPM = 30;
+            document.getElementById('rpmSlider').value = 30;
+            document.getElementById('rpmInput').value = 30;
+            document.getElementById('targetRpmDisplay').textContent = 30;
+            log('RPM Preset: 30 RPM selected', 'INFO');
+            
+            // Update server if control is active
+            if (rpmController.active) {
+                setTargetRPM(30);
+            }
+        });
+
+        document.getElementById('rpmPreset50').addEventListener('click', () => {
+            rpmController.targetRPM = 50;
+            document.getElementById('rpmSlider').value = 50;
+            document.getElementById('rpmInput').value = 50;
+            document.getElementById('targetRpmDisplay').textContent = 50;
+            log('RPM Preset: 50 RPM selected', 'INFO');
+            
+            // Update server if control is active
+            if (rpmController.active) {
+                setTargetRPM(50);
+            }
+        });
+
         // Initialize
         updateMainDisplay();
         updateMasterDisplay();
         updateActivePinsList();
         updateActiveSensorsList();
+        updateRPMDisplay();
         initializePinOptions();
         log('PWM Control Dashboard initialized', 'INFO');
         log('WebSocket connection established for real-time control', 'WEBSOCKET');
         log('Master Speed Control ready - controls all 4 GPIO pins simultaneously', 'INFO');
         log('Sensor Input Monitoring ready - monitoring 4 GPIO sensor inputs', 'INFO');
+        log('RPM Controller ready - closed-loop feedback control with 45 pulses/rotation', 'INFO');
         log('GPIO pin conflict prevention enabled - input/output pins are managed separately', 'INFO');
         
         // Initial status fetch

@@ -263,7 +263,58 @@ function cleanup() {
   activePins.clear();
 }
 
+// Direct PWM function for internal use (RPM controller)
+function setPWMDirect(pin, dutyCycle, frequency = 1000) {
+  try {
+    if (pigpioAvailable && Gpio) {
+      // Real Raspberry Pi - set actual PWM
+      if (!activePins.has(pin)) {
+        // Initialize new pin
+        const gpioPin = new Gpio(pin, { mode: Gpio.OUTPUT });
+        activePins.set(pin, {
+          gpio: gpioPin,
+          dutyCycle: 0,
+          frequency: 1000,
+          enabled: false
+        });
+      }
+
+      const pinData = activePins.get(pin);
+      
+      if (dutyCycle > 0) {
+        // Set PWM frequency and duty cycle
+        pinData.gpio.pwmFrequency(frequency);
+        pinData.gpio.pwmWrite(dutyCycle);
+        pinData.enabled = true;
+      } else {
+        // Disable PWM (set to 0)
+        pinData.gpio.pwmWrite(0);
+        pinData.enabled = false;
+      }
+
+      // Update stored values
+      pinData.dutyCycle = dutyCycle;
+      pinData.frequency = frequency;
+      
+      return true;
+    } else {
+      // Simulation mode - just store the values
+      activePins.set(pin, {
+        gpio: null,
+        dutyCycle: dutyCycle,
+        frequency: frequency,
+        enabled: dutyCycle > 0
+      });
+      return true;
+    }
+  } catch (error) {
+    console.error(`❌ Failed to set PWM directly on GPIO ${pin}:`, error);
+    return false;
+  }
+}
+
 // Export cleanup function for use in main server
 router.cleanup = cleanup;
+router.setPWMDirect = setPWMDirect;
 
 module.exports = router; 
