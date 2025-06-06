@@ -19,12 +19,13 @@ try {
 
 // Global sensor state - tracks all active sensor monitoring
 const sensorState = {
-    activeSensors: new Map(), // Map of sensor -> { pin, enabled, pulses, rate, lastPulse, gpio, polling }
+    activeSensors: new Map(), // Map of sensor -> { pin, enabled, pulses, rate, lastPulse, gpio, filteredRPM }
     pulseCounts: new Map(),   // Map of pin -> pulse count
     pulseRates: new Map(),    // Map of pin -> pulses per second
     lastPulseTimes: new Map(), // Map of pin -> last pulse timestamp
-    lastPinStates: new Map(), // Map of pin -> last digital state (for edge detection)
-    pollingIntervals: new Map() // Map of pin -> polling interval reference
+    pulseTimes: new Map(),    // Map of pin -> array of recent pulse timestamps for rolling window
+    rpmFilters: new Map(),    // Map of pin -> filtered RPM value
+    lastEdgeTick: new Map()   // Map of pin -> last edge tick for debouncing
 };
 
 // Socket.IO instance for real-time updates
@@ -36,7 +37,7 @@ function setSocket(socketInstance) {
     console.log('📡 Sensor routes: Socket.IO instance set for real-time sensor updates');
 }
 
-// Real GPIO input monitoring using polling (more reliable than interrupts)
+// Real GPIO input monitoring using pigpio alerts (interrupt-based)
 function startGPIOMonitoring(pin, sensor) {
     console.log(`📡 Starting real GPIO monitoring for pin ${pin} (Sensor ${sensor})`);
     
@@ -49,33 +50,39 @@ function startGPIOMonitoring(pin, sensor) {
         // Create GPIO instance for input monitoring
         const gpio = new Gpio(pin, {
             mode: Gpio.INPUT,
-            pullUpDown: Gpio.PUD_UP // Use internal pull-up resistor
+            pullUpDown: Gpio.PUD_UP, // Use internal pull-up resistor
+            alert: true // Enable alerts for interrupt-based detection
         });
         
-        // Initialize pin state tracking
-        const initialState = gpio.digitalRead();
-        sensorState.lastPinStates.set(pin, initialState);
-        
-        console.log(`🔧 GPIO ${pin} initialized: Current state = ${initialState}`);
-        
-        // Start polling for state changes (edge detection)
-        const pollingInterval = setInterval(() => {
-            if (sensorState.activeSensors.get(sensor)?.enabled) {
-                pollGPIOState(pin, sensor, gpio);
-            }
-        }, 10); // Poll every 10ms for fast response
-        
-        // Store references for cleanup
-        sensorState.pollingIntervals.set(pin, pollingInterval);
-        
-        // Update sensor state
-        if (sensorState.activeSensors.has(sensor)) {
-            const sensorData = sensorState.activeSensors.get(sensor);
-            sensorData.gpio = gpio;
-            sensorData.polling = pollingInterval;
+        // Initialize pulse timing for accurate RPM calculation
+        if (!sensorState.pulseTimes) {
+            sensorState.pulseTimes = new Map();
+        }
+        if (!sensorState.rpmFilters) {
+            sensorState.rpmFilters = new Map();
         }
         
-        console.log(`✅ Real GPIO monitoring active on pin ${pin} for Sensor ${sensor} (Polling mode, 10ms interval)`);
+        sensorState.pulseTimes.set(pin, []);
+        sensorState.rpmFilters.set(pin, 0);
+        
+        // Set up interrupt-based edge detection
+        const sensorKey = parseInt(sensor);
+        gpio.on('alert', (level, tick) => {
+            if (level === 1 && sensorState.activeSensors.get(sensorKey)?.enabled) {
+                detectRealPulseInterrupt(pin, sensorKey, tick);
+            }
+        });
+        
+        console.log(`🔧 GPIO ${pin} initialized with interrupt-based detection`);
+        
+        // Update sensor state
+        if (sensorState.activeSensors.has(sensorKey)) {
+            const sensorData = sensorState.activeSensors.get(sensorKey);
+            sensorData.gpio = gpio;
+            sensorData.polling = null; // No polling needed with interrupts
+        }
+        
+        console.log(`✅ Real GPIO monitoring active on pin ${pin} for Sensor ${sensor} (Interrupt mode)`);
         return true;
         
     } catch (error) {
@@ -84,76 +91,90 @@ function startGPIOMonitoring(pin, sensor) {
     }
 }
 
-// Poll GPIO state and detect edges (rising edge = pulse)
-function pollGPIOState(pin, sensor, gpio) {
-    try {
-        const currentState = gpio.digitalRead();
-        const lastState = sensorState.lastPinStates.get(pin);
-        
-        // Detect rising edge (0 -> 1 transition = wheel encoder pulse)
-        if (lastState === 0 && currentState === 1) {
-            detectRealPulse(pin, sensor);
-        }
-        
-        // Update last state
-        sensorState.lastPinStates.set(pin, currentState);
-        
-    } catch (error) {
-        console.error(`❌ Error polling GPIO ${pin}:`, error);
-    }
-}
-
-function stopGPIOMonitoring(sensor) {
-    const sensorData = sensorState.activeSensors.get(sensor);
-    if (!sensorData) return;
-    
-    const pin = sensorData.pin;
-    
-    // Stop polling
-    if (sensorState.pollingIntervals.has(pin)) {
-        clearInterval(sensorState.pollingIntervals.get(pin));
-        sensorState.pollingIntervals.delete(pin);
-        console.log(`📡 Stopped GPIO polling for Sensor ${sensor} (GPIO ${pin})`);
-    }
-    
-    // Clean up GPIO reference (don't terminate, might be used elsewhere)
-    if (sensorData.gpio) {
-        sensorData.gpio = null;
-    }
-    
-    // Clear state tracking
-    sensorState.lastPinStates.delete(pin);
-}
-
-// Handle real GPIO pulse detection
-function detectRealPulse(pin, sensor) {
+// Interrupt-based pulse detection with rolling window RPM calculation
+function detectRealPulseInterrupt(pin, sensor, tick) {
     const timestamp = Date.now();
+    // pigpio tick is µs since boot → convert once to seconds
+    const tickTime = tick / 1_000_000;
+
+    // ── Debounce: ignore edges <1 ms apart ─────────────────────
+    sensorState.lastEdgeTick ??= new Map();
+    const lastTick = sensorState.lastEdgeTick.get(pin) ?? 0;
+    if (tick - lastTick < 5_000) return;  // increase debounce to 5 ms
+    sensorState.lastEdgeTick.set(pin, tick);
     
     // Increment pulse count
     const currentCount = sensorState.pulseCounts.get(pin) || 0;
     const newCount = currentCount + 1;
     sensorState.pulseCounts.set(pin, newCount);
+    // ── DIAGNOSTIC LOG ──
+    const fr = sensorState.rpmFilters.get(pin) ?? 0;
+    console.log(`🔍 [Sensor ${sensor}] pulse #${newCount} on GPIO ${pin}, filteredRPM=${fr.toFixed(1)}, timestamp=${timestamp}`);
     
-    // Calculate pulse rate (pulses per second)
-    const lastTime = sensorState.lastPulseTimes.get(pin);
+    // Rolling window RPM calculation for better accuracy
+    const pulseTimes = sensorState.pulseTimes.get(pin) || [];
+    pulseTimes.push(tickTime);
+    
+    // Keep a 1 s window of timestamps
+    while (pulseTimes.length && (tickTime - pulseTimes[0]) > 1.0) {
+        pulseTimes.shift();
+    }
+    
     let rate = 0;
+    let instantRPM = 0;
     
-    if (lastTime) {
-        const timeDiff = (timestamp - lastTime) / 1000; // Convert to seconds
-        if (timeDiff > 0) {
-            rate = Math.round(1 / timeDiff); // Pulses per second
+    // Debug timing for first few pulses
+    if (newCount <= 10) {
+        console.log(`🔧 Pulse ${newCount}: tickTime=${tickTime.toFixed(6)}s, pulseTimes.length=${pulseTimes.length}`);
+    }
+    
+    if (pulseTimes.length >= 2) { // Require at least 2 pulses for calculation
+        // Calculate RPM from rolling window period
+        const windowTime = pulseTimes[pulseTimes.length - 1] - pulseTimes[0]; // already in seconds
+        const windowPulses = pulseTimes.length - 1;
+        
+        // Debug the window calculation
+        if (newCount <= 10) {
+            console.log(`🔧 Window: ${windowPulses} pulses in ${windowTime.toFixed(6)}s`);
+        }
+        
+        if (windowTime > 0.025) {           // >=25 ms window
+            const pulsesPerSecond = windowPulses / windowTime;
+            rate = Math.round(pulsesPerSecond);
+            instantRPM = (pulsesPerSecond * 60) / 45; // 45 pulses per rotation
+            
+            // Apply single-pole IIR filter for smoothing - start with first valid RPM, never 0
+            const currentFilter = sensorState.rpmFilters.get(pin) ?? instantRPM;
+            const filteredRPM = currentFilter * 0.6 + instantRPM * 0.4;
+            sensorState.rpmFilters.set(pin, filteredRPM);
+            
+            // Debug logging for calculations
+            if (newCount <= 10) {
+                console.log(`🔧 RPM Calc: ${pulsesPerSecond.toFixed(1)} pps = ${instantRPM.toFixed(1)} RPM, filtered: ${filteredRPM.toFixed(1)}`);
+            }
+        } else {
+            // keep previous filteredRPM so controller never sees 0
         }
     }
     
+    sensorState.pulseTimes.set(pin, pulseTimes);
     sensorState.lastPulseTimes.set(pin, timestamp);
     sensorState.pulseRates.set(pin, rate);
     
-    // Update sensor state
-    if (sensorState.activeSensors.has(sensor)) {
-        const sensorData = sensorState.activeSensors.get(sensor);
+    // Update sensor state (ensure sensor key is number) - always publish filteredRPM
+    const sensorKey = parseInt(sensor);
+    if (sensorState.activeSensors.has(sensorKey)) {
+        const sensorData = sensorState.activeSensors.get(sensorKey);
         sensorData.pulses = newCount;
         sensorData.rate = rate;
         sensorData.lastPulse = timestamp;
+        sensorData.filteredRPM = sensorState.rpmFilters.get(pin) ?? 0;
+        console.log(`🔍 [Sensor ${sensor}] → sensorState.activeSensors.get(${sensor}).pulses=${sensorData.pulses}, filteredRPM=${sensorData.filteredRPM.toFixed(1)}`);
+    }
+    
+    // Log first few pulses for diagnostics
+    if (newCount <= 5) {
+        console.log(`🔄 Sensor ${sensor}: Pulse #${newCount} detected on GPIO ${pin}, RPM: ${(sensorState.rpmFilters.get(pin) ?? 0).toFixed(1)}`);
     }
     
     // Broadcast sensor pulse to all WebSocket clients
@@ -163,13 +184,38 @@ function detectRealPulse(pin, sensor) {
             pin: pin,
             pulses: newCount,
             rate: rate,
+            rpm: sensorState.rpmFilters.get(pin) ?? 0,
             timestamp: timestamp,
-            source: 'real_gpio'
+            source: 'real_gpio_interrupt'
         });
     }
     
-    console.log(`🔄 REAL PULSE: Sensor ${sensor} (GPIO ${pin}): Pulse #${newCount}, Rate: ${rate}/sec`);
+
 }
+
+function stopGPIOMonitoring(sensor) {
+    const sensorData = sensorState.activeSensors.get(parseInt(sensor));
+    if (!sensorData) return;
+    
+    const pin = sensorData.pin;
+    
+    // Remove alert listener and clean up GPIO
+    if (sensorData.gpio) {
+        sensorData.gpio.removeAllListeners('alert');
+        sensorData.gpio = null;
+        console.log(`📡 Stopped GPIO interrupt monitoring for Sensor ${sensor} (GPIO ${pin})`);
+    }
+    
+    // Clear pulse timing data
+    if (sensorState.pulseTimes) {
+        sensorState.pulseTimes.delete(pin);
+    }
+    if (sensorState.rpmFilters) {
+        sensorState.rpmFilters.delete(pin);
+    }
+}
+
+
 
 // Enable sensor monitoring
 router.post('/enable', (req, res) => {
@@ -192,8 +238,8 @@ router.post('/enable', (req, res) => {
         
         console.log(`📡 Enabling sensor monitoring: Sensor ${sensor} on GPIO ${pin}`);
         
-        // Initialize sensor data
-        sensorState.activeSensors.set(sensor, {
+        // Initialize sensor data (ensure sensor is stored as number)
+        sensorState.activeSensors.set(parseInt(sensor), {
             pin: pin,
             enabled: true,
             pulses: 0,
@@ -262,8 +308,9 @@ router.post('/disable', (req, res) => {
         stopGPIOMonitoring(sensor);
         
         // Update sensor state
-        if (sensorState.activeSensors.has(sensor)) {
-            const sensorData = sensorState.activeSensors.get(sensor);
+        const sensorKey = parseInt(sensor);
+        if (sensorState.activeSensors.has(sensorKey)) {
+            const sensorData = sensorState.activeSensors.get(sensorKey);
             sensorData.enabled = false;
         }
         
@@ -306,8 +353,9 @@ router.post('/reset', (req, res) => {
         console.log(`📡 Resetting sensor counters: Sensor ${sensor}`);
         
         // Reset counters
-        if (sensorState.activeSensors.has(sensor)) {
-            const sensorData = sensorState.activeSensors.get(sensor);
+        const sensorKey = parseInt(sensor);
+        if (sensorState.activeSensors.has(sensorKey)) {
+            const sensorData = sensorState.activeSensors.get(sensorKey);
             const pin = sensorData.pin;
             
             sensorData.pulses = 0;
@@ -386,9 +434,11 @@ function cleanup() {
         stopGPIOMonitoring(sensor);
     });
     
-    // Clear all intervals
-    sensorState.pollingIntervals.forEach((interval, pin) => {
-        clearInterval(interval);
+    // Clean up interrupt listeners
+    sensorState.activeSensors.forEach((data, sensor) => {
+        if (data.gpio) {
+            data.gpio.removeAllListeners('alert');
+        }
     });
     
     // Clear all state
@@ -396,8 +446,16 @@ function cleanup() {
     sensorState.pulseCounts.clear();
     sensorState.pulseRates.clear();
     sensorState.lastPulseTimes.clear();
-    sensorState.lastPinStates.clear();
-    sensorState.pollingIntervals.clear();
+    
+    if (sensorState.pulseTimes) {
+        sensorState.pulseTimes.clear();
+    }
+    if (sensorState.rpmFilters) {
+        sensorState.rpmFilters.clear();
+    }
+    if (sensorState.lastEdgeTick) {
+        sensorState.lastEdgeTick.clear();
+    }
     
     console.log('✅ Sensor monitoring cleanup completed');
 }

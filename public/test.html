@@ -816,7 +816,8 @@
                     <div class="rpm-status" id="rpmStatus">
                         <strong>Status:</strong> <span style="color: #6c757d;">Stopped</span><br>
                         <strong>Mode:</strong> Server-side closed-loop control (45 pulses/rotation)<br>
-                        <strong>Control:</strong> Enhanced PID with smooth operation<br>
+                        <strong>Control:</strong> Aggressive PID tuning (kp=2.5, ki=0.35, kd=0.04)<br>
+                        <strong>Sensor:</strong> Interrupt-based detection with rolling window<br>
                         <strong>Update Rate:</strong> 100ms backend control loop
                     </div>
                 </div>
@@ -1549,9 +1550,10 @@
             
             if (rpmController.active) {
                 statusElement.innerHTML = `
-                    <strong>Status:</strong> <span style="color: #28a745;">Active - Server-side Enhanced PID Control on GPIO ${rpmController.controlPin}</span><br>
+                    <strong>Status:</strong> <span style="color: #28a745;">Active - Aggressive PID Control on GPIO ${rpmController.controlPin}</span><br>
                     <strong>Mode:</strong> Server-side closed-loop control (45 pulses/rotation)<br>
-                    <strong>Control:</strong> Enhanced PID with smooth operation<br>
+                    <strong>Control:</strong> Aggressive PID tuning (kp=2.5, ki=0.35, kd=0.04)<br>
+                    <strong>Sensor:</strong> Interrupt-based detection with rolling window<br>
                     <strong>Update Rate:</strong> 100ms backend control loop
                 `;
                 statusElement.classList.add('active');
@@ -1559,7 +1561,8 @@
                 statusElement.innerHTML = `
                     <strong>Status:</strong> <span style="color: #6c757d;">Stopped</span><br>
                     <strong>Mode:</strong> Server-side closed-loop control (45 pulses/rotation)<br>
-                    <strong>Control:</strong> Enhanced PID with smooth operation<br>
+                    <strong>Control:</strong> Aggressive PID tuning (kp=2.5, ki=0.35, kd=0.04)<br>
+                    <strong>Sensor:</strong> Interrupt-based detection with rolling window<br>
                     <strong>Update Rate:</strong> 100ms backend control loop
                 `;
                 statusElement.classList.remove('active');

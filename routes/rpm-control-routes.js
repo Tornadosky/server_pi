@@ -21,20 +21,13 @@ const rpmControlState = {
     UPDATE_RATE: 100, // Control loop update rate in ms (slower for stability)
     maxPWM: 255,
     minPWM: 0,
-    minRunningPWM: 40, // Minimum PWM needed to keep motor running
-    startupPWM: 60,    // Initial PWM for startup
-    // PID controller state - Optimized for smooth control
-    integralError: 0,
+    baseKick: 4,       // reduced to just break static friction
+    // Two-zone PID controller state
+    integralTerm: 0,   // Integral accumulator (I_term)
     lastError: 0,
-    kp: 0.8,   // Reduced proportional gain for smoother response
-    ki: 0.02,  // Lower integral gain to prevent windup
-    kd: 0.01,  // Minimal derivative gain for stability
+    satTimer: 0,       // Saturation timer for anti-windup
     // Control improvements
-    errorDeadband: 1.0, // Don't adjust PWM for small errors (±1 RPM)
-    rpmHistory: [],     // For smoothing RPM readings
-    HISTORY_SIZE: 5,    // Number of RPM readings to average
-    outputFilter: 0.0,  // Smoothed PWM output
-    filterAlpha: 0.3    // Filter coefficient for PWM smoothing
+    errorDeadband: 1.0  // widen deadband to ±1 RPM
 };
 
 // Socket.IO instance for real-time updates
@@ -52,60 +45,58 @@ function setSensorRoutes(sensorRoutesInstance) {
     console.log('🎯 RPM Control: Sensor routes reference set');
 }
 
-// Calculate current RPM from sensor data with improved smoothing
+// Calculate current RPM from sensor data using filtered interrupt-based readings
 function calculateCurrentRPM() {
     if (!sensorRoutes || !sensorRoutes.sensorState) {
         return 0;
     }
     
     const sensor = rpmControlState.sensorNumber;
-    const sensorData = sensorRoutes.sensorState.activeSensors.get(sensor.toString());
+    const sensorData = sensorRoutes.sensorState.activeSensors.get(sensor); // Fixed: use number not string
     
     if (!sensorData || !sensorData.enabled) {
         return 0;
     }
     
-    const currentPulses = sensorData.pulses || 0;
-    const currentTime = Date.now();
-    
-    // Calculate instantaneous RPM based on pulse rate
-    if (rpmControlState.lastUpdateTime > 0) {
-        const timeDelta = (currentTime - rpmControlState.lastUpdateTime) / 1000; // seconds
-        const pulseDelta = currentPulses - rpmControlState.lastPulseCount;
+    // Use the filtered RPM from interrupt-based calculation - fall back to last valid reading
+    if (sensorData.filteredRPM !== undefined && sensorData.filteredRPM > 0) {
+        rpmControlState.currentRPM = Math.round(sensorData.filteredRPM * 10) / 10;
+    } else if (rpmControlState.currentRPM > 0) {
+        // Keep last valid RPM reading instead of falling back to 0
+        // This prevents control disruption during brief sensor gaps
+    } else {
+        // Fallback to old calculation if no filtered RPM available and no previous reading
+        const currentPulses = sensorData.pulses || 0;
+        const currentTime = Date.now();
         
-        if (timeDelta > 0 && pulseDelta >= 0) {
-            const pulsesPerSecond = pulseDelta / timeDelta;
-            const rotationsPerSecond = pulsesPerSecond / rpmControlState.PULSES_PER_ROTATION;
-            const instantRPM = rotationsPerSecond * 60;
+        if (rpmControlState.lastUpdateTime > 0) {
+            const timeDelta = (currentTime - rpmControlState.lastUpdateTime) / 1000;
+            const pulseDelta = currentPulses - rpmControlState.lastPulseCount;
             
-            // Add to history buffer for smoothing
-            rpmControlState.rpmHistory.push(instantRPM);
-            if (rpmControlState.rpmHistory.length > rpmControlState.HISTORY_SIZE) {
-                rpmControlState.rpmHistory.shift(); // Remove oldest reading
+            if (timeDelta > 0 && pulseDelta >= 0) {
+                const pulsesPerSecond = pulseDelta / timeDelta;
+                const rotationsPerSecond = pulsesPerSecond / rpmControlState.PULSES_PER_ROTATION;
+                const instantRPM = rotationsPerSecond * 60;
+                rpmControlState.currentRPM = Math.round(instantRPM * 10) / 10;
             }
-            
-            // Calculate smoothed RPM using moving average
-            const avgRPM = rpmControlState.rpmHistory.reduce((sum, rpm) => sum + rpm, 0) / rpmControlState.rpmHistory.length;
-            
-            // Apply additional smoothing filter
-            const alpha = 0.6; // Filter coefficient (higher = less smoothing)
-            rpmControlState.currentRPM = alpha * avgRPM + (1 - alpha) * rpmControlState.currentRPM;
-            rpmControlState.currentRPM = Math.round(rpmControlState.currentRPM * 10) / 10; // Round to 1 decimal
         }
+        
+        rpmControlState.lastPulseCount = currentPulses;
+        rpmControlState.lastUpdateTime = currentTime;
     }
     
-    rpmControlState.lastPulseCount = currentPulses;
-    rpmControlState.lastUpdateTime = currentTime;
-    
+    console.log(`🔍 [calculateCurrentRPM] sensor #${rpmControlState.sensorNumber} → rawPulses=${sensorData ? sensorData.pulses : 0}, filteredRPM=${sensorData ? (sensorData.filteredRPM ?? 0).toFixed(1) : 0}, currentRPM=${rpmControlState.currentRPM.toFixed(1)}`);
     return rpmControlState.currentRPM;
 }
 
-// Enhanced PID Controller with smooth operation
+// Two-zone PID Controller with feed-forward start torque
 function updateRPMController() {
     if (!rpmControlState.active) return;
     
     // Calculate current RPM from sensor data
     const currentRPM = calculateCurrentRPM();
+    const sd = sensorRoutes.sensorState.activeSensors.get(rpmControlState.sensorNumber) || {};
+    console.log(`🔍 [PID Loop] target=${rpmControlState.targetRPM}, rawCurrentRPM=${currentRPM.toFixed(1)}, rawPulses=${sd.pulses || 0}, filteredRPM=${(sd.filteredRPM||0).toFixed(1)}`);
     
     // Calculate error
     const error = rpmControlState.targetRPM - currentRPM;
@@ -118,49 +109,55 @@ function updateRPMController() {
         return;
     }
     
+    // Two-zone PID gains based on target RPM
+    const LOW_SPEED = 20; // rpm threshold
+    const gainsLow  = {kp: 0.35, ki: 0.05, kd: 0};  // remove derivative on very low speed
+    const gainsHigh = {kp: 2.5, ki: 0.35, kd: 0.04};  // Aggressive gains for high speed
+    const g = (rpmControlState.targetRPM < LOW_SPEED) ? gainsLow : gainsHigh;
+    
     // PID calculations with improved integral handling
     const dt = rpmControlState.UPDATE_RATE / 1000; // Convert to seconds
     
     // Proportional term
-    const proportional = rpmControlState.kp * error;
+    const proportional = g.kp * error;
     
-    // Integral term with windup protection
-    rpmControlState.integralError += error * dt;
-    // Limit integral term to prevent windup
-    const maxIntegral = 50; // Maximum integral contribution
-    rpmControlState.integralError = Math.max(-maxIntegral, Math.min(maxIntegral, rpmControlState.integralError));
-    const integral = rpmControlState.ki * rpmControlState.integralError;
+    // Integral term with proper scaling and clamping
+    rpmControlState.integralTerm += g.ki * error * dt;
+    rpmControlState.integralTerm = Math.max(-100, Math.min(100, rpmControlState.integralTerm));
     
-    // Derivative term
-    const derivative = rpmControlState.kd * (error - rpmControlState.lastError) / dt;
-    
-    // PID output
-    const pidOutput = proportional + integral + derivative;
-    
-    // Apply PID output to PWM with smooth filtering
-    let newPWM = rpmControlState.currentPWM + pidOutput;
-    
-    // Special handling for startup - ensure minimum torque
-    if (rpmControlState.targetRPM > 0 && newPWM < rpmControlState.minRunningPWM) {
-        newPWM = rpmControlState.minRunningPWM;
+    // Derivative term - avoid spike on first iteration
+    let derivative = 0;
+    if (rpmControlState.lastError !== rpmControlState.targetRPM) {
+        derivative = g.kd * (error - rpmControlState.lastError) / dt;
     }
     
-    // Clamp PWM to valid range
-    newPWM = Math.max(rpmControlState.minPWM, Math.min(rpmControlState.maxPWM, newPWM));
+    // Absolute‑output PID
+    let u = proportional + rpmControlState.integralTerm + derivative;
+
+    // Feed‑forward kick proportional to target RPM
+    const kick = rpmControlState.baseKick + 0.15 * rpmControlState.targetRPM;  // lower feed-forward
+    if (error > 0 && u < kick) u = kick;
+
+    // ── Dynamic lower clamp ──────────────────────────────────
+    // Need to accelerate → guarantee static‑friction break‑away.
+    // Need to decelerate (error<0) → allow 0 so wheel can slow.
+    const minAllowed = (error > 0) ? kick : rpmControlState.minPWM;
+
+    // Clamp to actuator limits
+    u = Math.max(minAllowed, Math.min(rpmControlState.maxPWM, u));
+    rpmControlState.currentPWM = Math.round(u);
     
-    // Apply output filtering for smoother PWM changes
-    rpmControlState.outputFilter = rpmControlState.filterAlpha * newPWM + 
-                                  (1 - rpmControlState.filterAlpha) * rpmControlState.outputFilter;
-    
-    rpmControlState.currentPWM = Math.round(rpmControlState.outputFilter);
-    
-    // Reset integral term if output is saturated (anti-windup)
-    if (rpmControlState.currentPWM >= rpmControlState.maxPWM || 
-        (rpmControlState.currentPWM <= rpmControlState.minPWM && rpmControlState.targetRPM > 0)) {
-        rpmControlState.integralError *= 0.8; // Reduce integral term
+    // Anti‑wind‑up: if PWM has been hard‑clamped for >250 ms, bleed off ITerm
+    const saturated =
+          rpmControlState.currentPWM === rpmControlState.maxPWM
+       || rpmControlState.currentPWM === rpmControlState.minPWM;
+    rpmControlState.satTimer = saturated ? (rpmControlState.satTimer ?? 0) + dt : 0;
+    if (rpmControlState.satTimer > 0.25) {
+        rpmControlState.integralTerm *= 0.7;
     }
     
     // Send PWM command to motor
+    console.log(`🔍 [PID OUTPUT] P=${proportional.toFixed(2)}, I=${rpmControlState.integralTerm.toFixed(2)}, D=${derivative.toFixed(2)}, PWM=${rpmControlState.currentPWM}`);
     sendPWMCommand(rpmControlState.controlPin, rpmControlState.currentPWM);
     
     // Update state
@@ -170,9 +167,13 @@ function updateRPMController() {
     // Broadcast status update to clients
     broadcastRPMStatus();
     
-    // Log control activity (less frequent logging)
-    if (Math.abs(error) > 2) {
-        console.log(`🎯 RPM Control: Target=${rpmControlState.targetRPM}, Current=${currentRPM.toFixed(1)}, Error=${error.toFixed(1)}, PWM=${rpmControlState.currentPWM}, P=${proportional.toFixed(2)}, I=${integral.toFixed(2)}, D=${derivative.toFixed(2)}`);
+    // Enhanced logging with filteredRPM and final PWM
+    if (Math.abs(error) > 1) {
+        const sensorData = sensorRoutes.sensorState.activeSensors.get(rpmControlState.sensorNumber);
+        const pulseCount = sensorData ? sensorData.pulses : 'N/A';
+        const filteredRPM = sensorData ? (sensorData.filteredRPM || 0) : 0;
+        const gainZone = (rpmControlState.targetRPM < LOW_SPEED) ? 'LOW' : 'HIGH';
+        console.log(`🎯 RPM Control [${gainZone}]: Target=${rpmControlState.targetRPM}, Current=${currentRPM.toFixed(1)}, Filtered=${filteredRPM.toFixed(1)}, Error=${error.toFixed(1)}, PWM=${rpmControlState.currentPWM}, P=${proportional.toFixed(2)}, I=${rpmControlState.integralTerm.toFixed(2)}, D=${derivative.toFixed(2)}, Pulses=${pulseCount}`);
     }
 }
 
@@ -225,8 +226,8 @@ router.post('/start', (req, res) => {
             });
         }
         
-        // Check if sensor is enabled
-        const sensorData = sensorRoutes.sensorState.activeSensors.get(sensorNumber.toString());
+        // Check if sensor is enabled (use number key to match sensor storage)
+        const sensorData = sensorRoutes.sensorState.activeSensors.get(sensorNumber);
         if (!sensorData || !sensorData.enabled) {
             return res.status(400).json({
                 success: false,
@@ -243,24 +244,21 @@ router.post('/start', (req, res) => {
         rpmControlState.targetRPM = targetRPM;
         rpmControlState.controlPin = controlPin || 18;
         rpmControlState.sensorNumber = sensorNumber || 1;
-        rpmControlState.kp = gain || 0.8;
+        // Note: gain parameter now handled by two-zone system, kept for compatibility
         rpmControlState.active = true;
         
-        // Smart startup PWM based on target RPM
-        if (targetRPM <= 10) {
-            rpmControlState.currentPWM = rpmControlState.minRunningPWM; // Low RPM - minimal PWM
-        } else if (targetRPM <= 30) {
-            rpmControlState.currentPWM = rpmControlState.startupPWM;    // Medium RPM - moderate startup
-        } else {
-            rpmControlState.currentPWM = Math.min(80, rpmControlState.startupPWM + (targetRPM * 0.3)); // High RPM - higher startup
-        }
-        
-        rpmControlState.outputFilter = rpmControlState.currentPWM; // Initialize filter
+        // Initialize startup PWM with proportional kick
+        rpmControlState.currentPWM = rpmControlState.baseKick + 0.15 * targetRPM;  // match reduced kick
         rpmControlState.lastPulseCount = sensorData.pulses || 0;
         rpmControlState.lastUpdateTime = Date.now();
-        rpmControlState.integralError = 0; // Reset integral term
-        rpmControlState.lastError = 0;
-        rpmControlState.rpmHistory = []; // Clear RPM history
+        rpmControlState.integralTerm = 0; // Reset integral accumulator
+        rpmControlState.lastError = targetRPM; // Initialize to target to prevent derivative spike
+        rpmControlState.satTimer = 0;     // Reset saturation timer
+        
+        // Reset sensor RPM filter to avoid stale readings
+        if (sensorRoutes.sensorState.rpmFilters) {
+            sensorRoutes.sensorState.rpmFilters.set(sensorData.pin, 0);
+        }
         
         // Start control loop
         rpmControlState.controlInterval = setInterval(updateRPMController, rpmControlState.UPDATE_RATE);
@@ -277,7 +275,8 @@ router.post('/start', (req, res) => {
                 targetRPM: rpmControlState.targetRPM,
                 controlPin: rpmControlState.controlPin,
                 sensorNumber: rpmControlState.sensorNumber,
-                gain: rpmControlState.kp,
+                gainZone: (targetRPM < 20) ? 'LOW_SPEED' : 'HIGH_SPEED',
+                baseKick: rpmControlState.baseKick,
                 updateRate: rpmControlState.UPDATE_RATE
             }
         });
@@ -304,8 +303,9 @@ router.post('/stop', (req, res) => {
         // Stop motor
         sendPWMCommand(rpmControlState.controlPin, 0);
         rpmControlState.currentPWM = 0;
-        rpmControlState.integralError = 0;
+        rpmControlState.integralTerm = 0;
         rpmControlState.lastError = 0;
+        rpmControlState.satTimer = 0;
         
         console.log('🎯 RPM Control Stopped');
         
@@ -376,9 +376,7 @@ router.post('/set-params', (req, res) => {
     try {
         const { gain, controlPin, sensorNumber } = req.body;
         
-        if (gain !== undefined) {
-            rpmControlState.kp = gain;
-        }
+        // Note: Individual gain parameter deprecated in favor of two-zone system
         
         if (controlPin !== undefined) {
             rpmControlState.controlPin = controlPin;
@@ -388,7 +386,7 @@ router.post('/set-params', (req, res) => {
             rpmControlState.sensorNumber = sensorNumber;
         }
         
-        console.log(`🎯 RPM Control parameters updated: Gain=${rpmControlState.kp}, Pin=${rpmControlState.controlPin}, Sensor=${rpmControlState.sensorNumber}`);
+        console.log(`🎯 RPM Control parameters updated: Pin=${rpmControlState.controlPin}, Sensor=${rpmControlState.sensorNumber}`);
         
         // Broadcast updated status
         broadcastRPMStatus();
@@ -397,9 +395,9 @@ router.post('/set-params', (req, res) => {
             success: true,
             message: 'Control parameters updated',
             parameters: {
-                gain: rpmControlState.kp,
                 controlPin: rpmControlState.controlPin,
-                sensorNumber: rpmControlState.sensorNumber
+                sensorNumber: rpmControlState.sensorNumber,
+                baseKick: rpmControlState.baseKick
             }
         });
         
@@ -425,9 +423,13 @@ router.get('/status', (req, res) => {
                 error: rpmControlState.error,
                 controlPin: rpmControlState.controlPin,
                 sensorNumber: rpmControlState.sensorNumber,
-                gain: rpmControlState.kp,
+                baseKick: rpmControlState.baseKick,
                 updateRate: rpmControlState.UPDATE_RATE,
-                pulsesPerRotation: rpmControlState.PULSES_PER_ROTATION
+                pulsesPerRotation: rpmControlState.PULSES_PER_ROTATION,
+                gainZones: {
+                    lowSpeed: { threshold: 20, kp: 0.35, ki: 0.05, kd: 0 },
+                    highSpeed: { threshold: 20, kp: 2.5, ki: 0.35, kd: 0.04 }
+                }
             }
         });
         
@@ -451,6 +453,8 @@ function cleanup() {
     
     rpmControlState.active = false;
     rpmControlState.currentPWM = 0;
+    rpmControlState.integralTerm = 0;
+    rpmControlState.satTimer = 0;
     
     console.log('✅ RPM control cleanup completed');
 }
