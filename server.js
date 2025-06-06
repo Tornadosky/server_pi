@@ -84,7 +84,7 @@ app.get('/', (req, res) => {
     features: {
       pwmControl: 'Available at /api/pwm',
       robotControl: 'Available at /api/robot',
-      webInterface: `Available at ${protocol}://${host}/test.html`,
+      webInterface: `Available at ${protocol}://${host}/index.html`,
       robotDashboard: `Available at ${protocol}://${host}/robot.html`,
       healthCheck: 'Available at /health',
       websocket: 'Real-time updates via Socket.IO'
@@ -238,7 +238,7 @@ rpmControlRoutes.setSensorRoutes(sensorRoutes);
 // Start HTTP server with WebSocket support
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 HTTP Server running on port ${PORT}`);
-  console.log(`🔗 PWM Test Page: http://192.168.0.12:${PORT}/test.html`);
+  console.log(`🔗 PWM Test Page: http://192.168.0.12:${PORT}/index.html`);
   console.log(`🤖 Robot Dashboard: http://192.168.0.12:${PORT}/robot.html`);
   console.log(`⚡ WebSocket server ready for real-time control!`);
 });
@@ -249,7 +249,7 @@ global.servers = { httpServer, io };
 console.log(`🚀 Server Pi is running with WebSocket support!`);
 console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
 console.log(`⚡ Ready to handle requests from any device!`);
-console.log(`💡 Access your PWM controller at: http://192.168.0.12:${PORT}/test.html`);
+console.log(`💡 Access your PWM controller at: http://192.168.0.12:${PORT}/index.html`);
 console.log(`🤖 Access your Robot Dashboard at: http://192.168.0.12:${PORT}/robot.html`);
 
 // ==============================================

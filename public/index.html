@@ -5,559 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PWM Control Dashboard 🤖</title>
     <script src="/socket.io/socket.io.js"></script>
-    <style>
-        /* Modern CSS Reset and Base Styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-            overflow-x: hidden;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        /* Header Styles */
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .header .subtitle {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        /* Connection Status */
-        .connection-status {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .connection-status.connected {
-            background: #4caf50;
-            color: white;
-        }
-
-        .connection-status.disconnected {
-            background: #f44336;
-            color: white;
-        }
-
-        .connection-status.connecting {
-            background: #ff9800;
-            color: white;
-        }
-
-        /* Card Styles */
-        .control-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .control-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .card-title {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Main Control Section */
-        .main-control {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        @media (max-width: 768px) {
-            .main-control {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* PWM Control */
-        .pwm-control {
-            text-align: center;
-        }
-
-        .pwm-display {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #667eea;
-            margin: 15px 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .control-row {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin: 15px 0;
-            flex-wrap: wrap;
-        }
-
-        .control-label {
-            font-weight: bold;
-            color: #333;
-            min-width: 100px;
-        }
-
-        select, input[type="number"] {
-            padding: 8px 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        select:focus, input[type="number"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .pwm-slider {
-            flex: 1;
-            height: 8px;
-            border-radius: 5px;
-            background: #ddd;
-            outline: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .pwm-slider::-webkit-slider-thumb {
-            appearance: none;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .pwm-slider::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
-        }
-
-        /* Action Buttons */
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-
-        .action-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-
-        .action-btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .action-btn.danger {
-            background: #ff4757;
-        }
-
-        .action-btn.danger:hover {
-            background: #ff3838;
-        }
-
-        .action-btn.secondary {
-            background: #6c757d;
-        }
-
-        .action-btn.secondary:hover {
-            background: #5a6268;
-        }
-
-        /* GPIO Dashboards Grid */
-        .gpio-dashboards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
-        }
-
-        .gpio-dashboard {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: transform 0.3s ease;
-        }
-
-        .gpio-dashboard:hover {
-            transform: translateY(-3px);
-        }
-
-        .gpio-dashboard.active {
-            border-color: #667eea;
-            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
-        }
-
-        .dashboard-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-
-        .dashboard-title {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .gpio-selector {
-            padding: 6px 10px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .gpio-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ddd;
-            transition: all 0.3s ease;
-        }
-
-        .status-indicator.active {
-            background: #4caf50;
-            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-        }
-
-        .status-text {
-            font-size: 0.9rem;
-            color: #666;
-        }
-
-        .dashboard-slider {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-            margin: 15px 0;
-            cursor: pointer;
-        }
-
-        .dashboard-slider::-webkit-slider-thumb {
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-        }
-
-        .preset-buttons {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 15px;
-        }
-
-        .preset-btn {
-            padding: 8px 4px;
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: bold;
-            color: #495057;
-            transition: all 0.3s ease;
-        }
-
-        .preset-btn:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .preset-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* Sensor Dashboard Styles */
-        .sensor-dashboard {
-            border-left: 4px solid #28a745;
-        }
-
-        .sensor-dashboard.active {
-            border-color: #28a745;
-            box-shadow: 0 12px 40px rgba(40, 167, 69, 0.2);
-        }
-
-        .sensor-indicator {
-            background: #dc3545 !important;
-        }
-
-        .sensor-indicator.active {
-            background: #28a745 !important;
-            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5) !important;
-        }
-
-        .sensor-readings {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .sensor-metric {
-            text-align: center;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-        }
-
-        .metric-label {
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .metric-value {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .sensor-controls {
-            display: flex;
-            gap: 8px;
-            margin-top: 15px;
-        }
-
-        .sensor-controls .action-btn {
-            flex: 1;
-            padding: 8px 12px;
-            font-size: 0.8rem;
-        }
-
-        .sensor-enable.enabled {
-            background: #28a745;
-        }
-
-        .sensor-enable.enabled:hover {
-            background: #218838;
-        }
-
-        /* Sensor pulse animation */
-        .pulse-animation {
-            animation: pulseGlow 0.3s ease-in-out;
-        }
-
-        @keyframes pulseGlow {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(40, 167, 69, 0.8); }
-            100% { transform: scale(1); }
-        }
-
-        /* RPM Controller Styles */
-        .rpm-display-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .rpm-metric {
-            text-align: center;
-            padding: 15px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 12px;
-            border: 2px solid #dee2e6;
-            transition: all 0.3s ease;
-        }
-
-        .rpm-metric:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .rpm-metric .metric-label {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 8px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .rpm-metric .metric-value {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .rpm-control .control-row {
-            margin: 15px 0;
-        }
-
-        .rpm-control input[type="number"] {
-            width: 80px;
-            margin-left: 10px;
-        }
-
-        /* RPM Status indicators */
-        .rpm-status.active {
-            border-left: 4px solid #28a745;
-            background: #d4edda !important;
-        }
-
-        .rpm-status.error {
-            border-left: 4px solid #dc3545;
-            background: #f8d7da !important;
-        }
-
-        /* Control gain display */
-        #gainDisplay {
-            min-width: 30px;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        @media (max-width: 768px) {
-            .rpm-display-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-            
-            .rpm-metric {
-                padding: 12px;
-            }
-            
-            .rpm-metric .metric-value {
-                font-size: 1.5rem;
-            }
-        }
-
-        /* Log Section */
-        .log-section {
-            margin-top: 30px;
-        }
-
-        .log {
-            background: #222;
-            color: #0f0;
-            padding: 15px;
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            height: 200px;
-            overflow-y: auto;
-            border: 2px solid #333;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .control-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .control-label {
-                min-width: auto;
-            }
-
-            .gpio-dashboards {
-                grid-template-columns: 1fr;
-            }
-
-            .preset-buttons {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* Animation Classes */
-        .slide-in {
-            animation: slideIn 0.5s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="connection-status connecting" id="connectionStatus">
@@ -824,34 +272,11 @@
             </div>
         </div>
 
-        <!-- Master Speed Control -->
+        <!-- Quick Links -->
         <div class="control-card slide-in">
-            <h2 class="card-title">🚀 Master Speed Control</h2>
-            <div class="pwm-control">
-                <div class="pwm-display" id="masterDisplay">0 (0%)</div>
-                
-                <div class="control-row">
-                    <span class="control-label">Master PWM:</span>
-                    <input type="range" id="masterSlider" class="pwm-slider" min="0" max="255" value="0">
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: #666;">
-                    <span>0 PWM (0%)</span>
-                    <span>255 PWM (100%)</span>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="action-btn" id="masterPreset25">25% All</button>
-                    <button class="action-btn" id="masterPreset50">50% All</button>
-                    <button class="action-btn" id="masterPreset75">75% All</button>
-                    <button class="action-btn" id="masterPreset100">100% All</button>
-                    <button class="action-btn danger" id="masterStop">🛑 Stop All</button>
-                </div>
-                
-                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
-                    <strong>📋 Active GPIO Pins:</strong>
-                    <div id="activePinsList">GPIO 19 (FL), GPIO 13 (FR), GPIO 12 (RR), GPIO 18 (RL)</div>
-                </div>
+            <h2 class="card-title">🔗 Quick Links</h2>
+            <div class="action-buttons">
+                <button class="action-btn" onclick="location.href='master-control.html'">🚀 Master Speed Control</button>
             </div>
         </div>
 
@@ -1039,15 +464,6 @@
                 <div id="activeSensorsList">GPIO 23 (FL), GPIO 22 (FR), GPIO 4 (RR), GPIO 27 (RL)</div>
             </div>
         </div>
-
-        <!-- Log Section -->
-        <div class="control-card log-section slide-in">
-            <h2 class="card-title">📝 Activity Log</h2>
-            <div id="log" class="log"></div>
-            <div class="action-buttons">
-                <button class="action-btn secondary" id="clearLogBtn">Clear Log</button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -1061,7 +477,7 @@
         const mainPin = document.getElementById('mainPin');
         const mainFrequency = document.getElementById('mainFrequency');
         const statusDisplay = document.getElementById('statusDisplay');
-        const logElement = document.getElementById('log');
+
         
         // Master control elements
         const masterSlider = document.getElementById('masterSlider');
@@ -1170,15 +586,14 @@
                     }
                 });
                 
-                // If current pin is no longer available, select first available
-                if (usedPWMPins.includes(currentValue) && availableSensorPins.length > 0) {
-                    const newPin = availableSensorPins[0];
-                    selector.value = newPin;
-                    
-                    // Update sensor state
-                    sensorState[sensorNumber].pin = newPin;
-                    log(`Sensor ${sensorNumber}: Pin conflict resolved, moved to GPIO ${newPin}`, 'WARNING');
-                }
+                                    // If current pin is no longer available, select first available
+                    if (usedPWMPins.includes(currentValue) && availableSensorPins.length > 0) {
+                        const newPin = availableSensorPins[0];
+                        selector.value = newPin;
+                        
+                        // Update sensor state
+                        sensorState[sensorNumber].pin = newPin;
+                    }
             });
         }
 
@@ -1239,69 +654,45 @@
                     }
                 });
                 
-                // If current pin is no longer available, select first available
-                if (usedSensorPins.includes(currentValue) && availablePWMPins.length > 0) {
-                    const newPin = availablePWMPins[0];
-                    selector.value = newPin;
-                    
-                    // Update dashboard state
-                    dashboardState[dashboardNumber].pin = newPin;
-                    log(`PWM Dashboard ${dashboardNumber}: Pin conflict resolved, moved to GPIO ${newPin}`, 'WARNING');
-                }
+                                    // If current pin is no longer available, select first available
+                    if (usedSensorPins.includes(currentValue) && availablePWMPins.length > 0) {
+                        const newPin = availablePWMPins[0];
+                        selector.value = newPin;
+                        
+                        // Update dashboard state
+                        dashboardState[dashboardNumber].pin = newPin;
+                    }
             });
         }
 
         // Initialize pin options on page load
         function initializePinOptions() {
-            log('Initializing GPIO pin options with conflict prevention', 'INFO');
-            
             // Update all pin selectors to show only available options
             updateSensorPinOptions();
             updatePWMPinOptions();
-            
-            log('GPIO pin conflict prevention active', 'SUCCESS');
         }
 
-        // Utility function to log messages
-        function log(message, type = 'INFO') {
-            const timestamp = new Date().toLocaleTimeString();
-            const colors = {
-                'INFO': '#00aaff',
-                'SUCCESS': '#00ff00',
-                'ERROR': '#ff0000',
-                'WARNING': '#ffaa00',
-                'WEBSOCKET': '#ff00ff'
-            };
-            
-            logElement.innerHTML += `<div style="color: ${colors[type] || '#fff'}">
-                [${timestamp}] [${type}] ${message}
-            </div>`;
-            logElement.scrollTop = logElement.scrollHeight;
-        }
+
 
         // WebSocket connection handlers
         socket.on('connect', () => {
-            log('Connected to WebSocket server', 'WEBSOCKET');
             connectionStatus.textContent = '🟢 Connected';
             connectionStatus.className = 'connection-status connected';
         });
 
         socket.on('disconnect', () => {
-            log('Disconnected from WebSocket server', 'WEBSOCKET');
             connectionStatus.textContent = '🔴 Disconnected';
             connectionStatus.className = 'connection-status disconnected';
         });
 
         // Real-time PWM updates via WebSocket
         socket.on('pwmUpdate', (data) => {
-            log(`PWM Update: GPIO ${data.pin} set to ${data.dutyCycle} (${Math.round((data.dutyCycle/255)*100)}%)`, 'WEBSOCKET');
             updateDashboardDisplay(data.pin, data.dutyCycle);
         });
 
         // Real-time sensor updates via WebSocket
         socket.on('sensorPulse', (data) => {
             const { sensor, pin, pulses, rate, timestamp } = data;
-            log(`🔄 WHEEL ROTATION: Sensor ${sensor} (GPIO ${pin}) - Total: ${pulses}, Rate: ${rate}/sec`, 'WEBSOCKET');
             updateSensorDisplay(sensor, pulses, rate, timestamp);
         });
 
@@ -1326,7 +717,6 @@
         });
 
         socket.on('sensorUpdate', (data) => {
-            log(`Sensor Update: ${data.message}`, 'WEBSOCKET');
             if (data.sensorStates) {
                 // Update all sensor states
                 Object.keys(data.sensorStates).forEach(sensor => {
@@ -1352,13 +742,10 @@
                 
                 const data = await response.json();
                 if (data.success) {
-                    log(`PWM Set: GPIO ${pin} = ${dutyCycle} (${data.dutyPercentage}%)`, 'SUCCESS');
                     updateDashboardDisplay(pin, dutyCycle);
-                } else {
-                    log(`PWM Set Failed: ${data.error}`, 'ERROR');
                 }
             } catch (error) {
-                log(`PWM Request Error: ${error.message}`, 'ERROR');
+                // Error handling can be done here if needed
             }
         }
 
@@ -1458,13 +845,9 @@
                 });
                 
                 const data = await response.json();
-                if (data.success) {
-                    log(`RPM Control Started: ${data.message}`, 'SUCCESS');
-                } else {
-                    log(`RPM Control Failed: ${data.error}`, 'ERROR');
-                }
+
             } catch (error) {
-                log(`RPM Control Error: ${error.message}`, 'ERROR');
+                // Error handling for RPM control
             }
         }
 
@@ -1476,13 +859,9 @@
                 });
                 
                 const data = await response.json();
-                if (data.success) {
-                    log('RPM Control Stopped', 'INFO');
-                } else {
-                    log(`RPM Control Stop Failed: ${data.error}`, 'ERROR');
-                }
+
             } catch (error) {
-                log(`RPM Control Stop Error: ${error.message}`, 'ERROR');
+                // Error handling for RPM stop
             }
         }
 
@@ -1495,13 +874,9 @@
                 });
                 
                 const data = await response.json();
-                if (data.success) {
-                    log(`Target RPM updated: ${rpm} RPM`, 'INFO');
-                } else {
-                    log(`RPM Update Failed: ${data.error}`, 'ERROR');
-                }
+
             } catch (error) {
-                log(`RPM Update Error: ${error.message}`, 'ERROR');
+                // Error handling for RPM update
             }
         }
 
@@ -1518,13 +893,9 @@
                 });
                 
                 const data = await response.json();
-                if (data.success) {
-                    log('RPM Control parameters updated', 'INFO');
-                } else {
-                    log(`RPM Params Update Failed: ${data.error}`, 'ERROR');
-                }
+
             } catch (error) {
-                log(`RPM Params Error: ${error.message}`, 'ERROR');
+                // Error handling for RPM params
             }
         }
 
@@ -1633,7 +1004,7 @@
                 const data = await response.json();
                 if (data.success) {
                     sensorState[sensor].enabled = true;
-                    log(`Sensor ${sensor} (GPIO ${pin}) enabled`, 'SUCCESS');
+                    console.log(`Sensor ${sensor} (GPIO ${pin}) enabled`, 'SUCCESS');
                     
                     // Update button state
                     const button = document.querySelector(`[data-enable-sensor="${sensor}"]`);
@@ -1642,10 +1013,10 @@
                         button.classList.add('enabled');
                     }
                 } else {
-                    log(`Failed to enable sensor ${sensor}: ${data.error}`, 'ERROR');
+                    console.log(`Failed to enable sensor ${sensor}: ${data.error}`, 'ERROR');
                 }
             } catch (error) {
-                log(`Sensor enable error: ${error.message}`, 'ERROR');
+                console.log(`Sensor enable error: ${error.message}`, 'ERROR');
             }
         }
 
@@ -1663,7 +1034,7 @@
                 const data = await response.json();
                 if (data.success) {
                     sensorState[sensor].enabled = false;
-                    log(`Sensor ${sensor} (GPIO ${pin}) disabled`, 'INFO');
+                    console.log(`Sensor ${sensor} (GPIO ${pin}) disabled`, 'INFO');
                     
                     // Update button state
                     const button = document.querySelector(`[data-enable-sensor="${sensor}"]`);
@@ -1678,10 +1049,10 @@
                         indicator.classList.remove('active');
                     }
                 } else {
-                    log(`Failed to disable sensor ${sensor}: ${data.error}`, 'ERROR');
+                    console.log(`Failed to disable sensor ${sensor}: ${data.error}`, 'ERROR');
                 }
             } catch (error) {
-                log(`Sensor disable error: ${error.message}`, 'ERROR');
+                console.log(`Sensor disable error: ${error.message}`, 'ERROR');
             }
         }
 
@@ -1698,13 +1069,13 @@
                 
                 const data = await response.json();
                 if (data.success) {
-                    log(`Sensor ${sensor} (GPIO ${pin}) reset`, 'INFO');
+                    console.log(`Sensor ${sensor} (GPIO ${pin}) reset`, 'INFO');
                     updateSensorDisplay(sensor, 0, 0, null);
                 } else {
-                    log(`Failed to reset sensor ${sensor}: ${data.error}`, 'ERROR');
+                    console.log(`Failed to reset sensor ${sensor}: ${data.error}`, 'ERROR');
                 }
             } catch (error) {
-                log(`Sensor reset error: ${error.message}`, 'ERROR');
+                console.log(`Sensor reset error: ${error.message}`, 'ERROR');
             }
         }
 
@@ -1712,7 +1083,7 @@
         async function setMasterPWM(dutyCycle) {
             const promises = [];
             
-            log(`Master Control: Setting all GPIO pins to ${dutyCycle} (${Math.round((dutyCycle/255)*100)}%)`, 'INFO');
+            console.log(`Master Control: Setting all GPIO pins to ${dutyCycle} (${Math.round((dutyCycle/255)*100)}%)`, 'INFO');
             
             // Update all dashboard states and send PWM commands
             for (let dashboard in dashboardState) {
@@ -1728,9 +1099,9 @@
             
             try {
                 await Promise.all(promises);
-                log(`Master Control: All GPIO pins updated successfully`, 'SUCCESS');
+                console.log(`Master Control: All GPIO pins updated successfully`, 'SUCCESS');
             } catch (error) {
-                log(`Master Control Error: ${error.message}`, 'ERROR');
+                console.log(`Master Control Error: ${error.message}`, 'ERROR');
             }
         }
 
@@ -1769,7 +1140,7 @@
             masterSlider.value = value;
             updateMasterDisplay();
             setMasterPWM(value);
-            log('Master Control: 25% preset applied to all GPIO pins', 'INFO');
+            console.log('Master Control: 25% preset applied to all GPIO pins', 'INFO');
         });
 
         document.getElementById('masterPreset50').addEventListener('click', () => {
@@ -1777,7 +1148,7 @@
             masterSlider.value = value;
             updateMasterDisplay();
             setMasterPWM(value);
-            log('Master Control: 50% preset applied to all GPIO pins', 'INFO');
+            console.log('Master Control: 50% preset applied to all GPIO pins', 'INFO');
         });
 
         document.getElementById('masterPreset75').addEventListener('click', () => {
@@ -1785,7 +1156,7 @@
             masterSlider.value = value;
             updateMasterDisplay();
             setMasterPWM(value);
-            log('Master Control: 75% preset applied to all GPIO pins', 'INFO');
+            console.log('Master Control: 75% preset applied to all GPIO pins', 'INFO');
         });
 
         document.getElementById('masterPreset100').addEventListener('click', () => {
@@ -1793,14 +1164,14 @@
             masterSlider.value = value;
             updateMasterDisplay();
             setMasterPWM(value);
-            log('Master Control: 100% preset applied to all GPIO pins', 'INFO');
+            console.log('Master Control: 100% preset applied to all GPIO pins', 'INFO');
         });
 
         document.getElementById('masterStop').addEventListener('click', () => {
             masterSlider.value = 0;
             updateMasterDisplay();
             setMasterPWM(0);
-            log('Master Control: Emergency stop - all GPIO pins stopped', 'WARNING');
+            console.log('Master Control: Emergency stop - all GPIO pins stopped', 'WARNING');
         });
 
         // Main pin change handler
@@ -1832,7 +1203,7 @@
                 const newPin = parseInt(e.target.value);
                 const oldPin = dashboardState[dashboard].pin;
                 
-                log(`Dashboard ${dashboard}: Changed from GPIO ${oldPin} to GPIO ${newPin}`, 'INFO');
+                console.log(`Dashboard ${dashboard}: Changed from GPIO ${oldPin} to GPIO ${newPin}`, 'INFO');
                 
                 // Update dashboard state
                 dashboardState[dashboard].pin = newPin;
@@ -1859,7 +1230,7 @@
                 const newPin = parseInt(e.target.value);
                 const oldPin = sensorState[sensor].pin;
                 
-                log(`Sensor ${sensor}: Changed from GPIO ${oldPin} to GPIO ${newPin}`, 'INFO');
+                console.log(`Sensor ${sensor}: Changed from GPIO ${oldPin} to GPIO ${newPin}`, 'INFO');
                 
                 // Disable old sensor first
                 if (sensorState[sensor].enabled) {
@@ -1909,7 +1280,7 @@
             for (let sensor in sensorState) {
                 resetSensor(sensor);
             }
-            log('All sensor counters reset', 'INFO');
+            console.log('All sensor counters reset', 'INFO');
         });
 
         document.getElementById('enableAllSensors').addEventListener('click', () => {
@@ -1918,7 +1289,7 @@
                     enableSensor(sensor);
                 }
             }
-            log('All sensors enabled', 'INFO');
+            console.log('All sensors enabled', 'INFO');
         });
 
         document.getElementById('disableAllSensors').addEventListener('click', () => {
@@ -1927,7 +1298,7 @@
                     disableSensor(sensor);
                 }
             }
-            log('All sensors disabled', 'INFO');
+            console.log('All sensors disabled', 'INFO');
         });
 
         // Preset button handlers
@@ -1937,7 +1308,7 @@
                 const value = parseInt(e.target.dataset.value);
                 const pin = dashboardState[dashboard].pin;
                 
-                log(`Preset ${Math.round((value/255)*100)}% applied to Dashboard ${dashboard} (GPIO ${pin})`, 'INFO');
+                console.log(`Preset ${Math.round((value/255)*100)}% applied to Dashboard ${dashboard} (GPIO ${pin})`, 'INFO');
                 
                 // Update slider and display
                 const slider = document.querySelector(`[data-slider="${dashboard}"]`);
@@ -1971,7 +1342,7 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    log(`All PWM stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
+                    console.log(`All PWM stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
                     
                     // Reset all displays
                     for (let dashboard in dashboardState) {
@@ -1983,7 +1354,7 @@
                     updateMainDisplay();
                 }
             } catch (error) {
-                log(`Stop All Error: ${error.message}`, 'ERROR');
+                console.log(`Stop All Error: ${error.message}`, 'ERROR');
             }
         });
 
@@ -2008,17 +1379,13 @@
                     </div>
                 `;
                 
-                log('Status updated', 'INFO');
+                console.log('Status updated', 'INFO');
             } catch (error) {
-                log(`Status Error: ${error.message}`, 'ERROR');
+                console.log(`Status Error: ${error.message}`, 'ERROR');
             }
         });
 
-        // Clear log
-        document.getElementById('clearLogBtn').addEventListener('click', () => {
-            logElement.innerHTML = '';
-            log('Log cleared', 'INFO');
-        });
+
 
         // RPM Controller Event Handlers
         document.getElementById('rpmSlider').addEventListener('input', (e) => {
@@ -2055,7 +1422,7 @@
 
         document.getElementById('rpmControlPin').addEventListener('change', (e) => {
             rpmController.controlPin = parseInt(e.target.value);
-            log(`RPM Controller: Pin changed to GPIO ${rpmController.controlPin}`, 'INFO');
+            console.log(`RPM Controller: Pin changed to GPIO ${rpmController.controlPin}`, 'INFO');
             
             // Update server parameters
             updateRPMParams();
@@ -2063,7 +1430,7 @@
 
         document.getElementById('rpmSensorSelect').addEventListener('change', (e) => {
             rpmController.sensorNumber = parseInt(e.target.value);
-            log(`RPM Controller: Sensor changed to Sensor ${rpmController.sensorNumber}`, 'INFO');
+            console.log(`RPM Controller: Sensor changed to Sensor ${rpmController.sensorNumber}`, 'INFO');
             
             // Update server parameters
             updateRPMParams();
@@ -2078,7 +1445,7 @@
             document.getElementById('rpmSlider').value = 15;
             document.getElementById('rpmInput').value = 15;
             document.getElementById('targetRpmDisplay').textContent = 15;
-            log('RPM Preset: 15 RPM selected', 'INFO');
+            console.log('RPM Preset: 15 RPM selected', 'INFO');
             
             // Update server if control is active
             if (rpmController.active) {
@@ -2091,7 +1458,7 @@
             document.getElementById('rpmSlider').value = 30;
             document.getElementById('rpmInput').value = 30;
             document.getElementById('targetRpmDisplay').textContent = 30;
-            log('RPM Preset: 30 RPM selected', 'INFO');
+            console.log('RPM Preset: 30 RPM selected', 'INFO');
             
             // Update server if control is active
             if (rpmController.active) {
@@ -2104,7 +1471,7 @@
             document.getElementById('rpmSlider').value = 50;
             document.getElementById('rpmInput').value = 50;
             document.getElementById('targetRpmDisplay').textContent = 50;
-            log('RPM Preset: 50 RPM selected', 'INFO');
+            console.log('RPM Preset: 50 RPM selected', 'INFO');
             
             // Update server if control is active
             if (rpmController.active) {
@@ -2119,12 +1486,12 @@
         updateActiveSensorsList();
         updateRPMDisplay();
         initializePinOptions();
-        log('PWM Control Dashboard initialized', 'INFO');
-        log('WebSocket connection established for real-time control', 'WEBSOCKET');
-        log('Master Speed Control ready - controls all 4 GPIO pins simultaneously', 'INFO');
-        log('Sensor Input Monitoring ready - monitoring 4 GPIO sensor inputs', 'INFO');
-        log('RPM Controller ready - closed-loop feedback control with 45 pulses/rotation', 'INFO');
-        log('GPIO pin conflict prevention enabled - input/output pins are managed separately', 'INFO');
+        console.log('PWM Control Dashboard initialized', 'INFO');
+        console.log('WebSocket connection established for real-time control', 'WEBSOCKET');
+        console.log('Master Speed Control ready - controls all 4 GPIO pins simultaneously', 'INFO');
+        console.log('Sensor Input Monitoring ready - monitoring 4 GPIO sensor inputs', 'INFO');
+        console.log('RPM Controller ready - closed-loop feedback control with 45 pulses/rotation', 'INFO');
+        console.log('GPIO pin conflict prevention enabled - input/output pins are managed separately', 'INFO');
         
         // Initial status fetch
         setTimeout(() => {

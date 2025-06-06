@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Speed Control 🚀</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="connection-status connecting" id="connectionStatus">
+        🔄 Connecting...
+    </div>
+
+    <div class="container">
+        <div class="header slide-in">
+            <h1>🚀 Master Speed Control</h1>
+            <p class="subtitle">Unified control for all GPIO PWM outputs</p>
+        </div>
+
+        <!-- Master Speed Control Section -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">🚀 Master Speed Control</h2>
+            <div class="pwm-control">
+                <div class="pwm-display" id="masterDisplay">0 (0%)</div>
+                
+                <div class="control-row">
+                    <span class="control-label">Master PWM:</span>
+                    <input type="range" id="masterSlider" class="pwm-slider" min="0" max="255" value="0">
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: #666;">
+                    <span>0 PWM (0%)</span>
+                    <span>255 PWM (100%)</span>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn" id="masterPreset25">25% All</button>
+                    <button class="action-btn" id="masterPreset50">50% All</button>
+                    <button class="action-btn" id="masterPreset75">75% All</button>
+                    <button class="action-btn" id="masterPreset100">100% All</button>
+                    <button class="action-btn danger" id="masterStop">🛑 Stop All</button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                    <strong>📋 Active GPIO Pins:</strong>
+                    <div id="activePinsList">GPIO 19 (FL), GPIO 13 (FR), GPIO 12 (RR), GPIO 18 (RL)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">🔗 Navigation</h2>
+            <div class="action-buttons">
+                <button class="action-btn secondary" onclick="location.href='index.html'">← Back to Main Dashboard</button>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div class="control-card log-section slide-in">
+            <h2 class="card-title">📋 System Log</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // DOM elements
+        const connectionStatus = document.getElementById('connectionStatus');
+        const masterSlider = document.getElementById('masterSlider');
+        const masterDisplay = document.getElementById('masterDisplay');
+        const activePinsList = document.getElementById('activePinsList');
+        const logElement = document.getElementById('log');
+        
+        // GPIO dashboard state (Updated for your wheel mapping)
+        const dashboardState = {
+            1: { pin: 19, value: 0 }, // Front Left
+            2: { pin: 13, value: 0 }, // Front Right  
+            3: { pin: 12, value: 0 }, // Rear Right
+            4: { pin: 18, value: 0 }  // Rear Left
+        };
+
+        // Master control state
+        let masterControlActive = false;
+
+        // Logging function
+        function log(message, level = 'INFO') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${level}: ${message}`;
+            
+            if (logElement) {
+                logElement.innerHTML += logEntry + '\n';
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logEntry);
+        }
+
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            log('Connected to server');
+            connectionStatus.textContent = '✅ Connected';
+            connectionStatus.className = 'connection-status connected';
+        });
+
+        socket.on('disconnect', () => {
+            log('Disconnected from server');
+            connectionStatus.textContent = '❌ Disconnected';
+            connectionStatus.className = 'connection-status disconnected';
+        });
+
+        socket.on('pwm_update', (data) => {
+            log(`PWM Update: GPIO ${data.pin} set to ${data.dutyCycle} (${Math.round(data.dutyCycle/255*100)}%)`);
+            updateMasterDisplay();
+        });
+
+        socket.on('error', (data) => {
+            log(`Error: ${data.message}`, 'ERROR');
+        });
+
+        socket.on('status', (data) => {
+            log(`Status: ${data.message}`);
+        });
+
+        // Master control functions
+        function updateMasterDisplay() {
+            const masterValue = parseInt(masterSlider.value);
+            const percentage = Math.round((masterValue / 255) * 100);
+            masterDisplay.textContent = `${masterValue} (${percentage}%)`;
+        }
+
+        function setMasterPWM(value) {
+            masterSlider.value = value;
+            updateMasterDisplay();
+            
+            // Apply to all active GPIO pins
+            Object.values(dashboardState).forEach(state => {
+                socket.emit('setPWM', {
+                    pin: state.pin,
+                    dutyCycle: value,
+                    frequency: 1000
+                });
+                state.value = value;
+            });
+            
+            log(`Master Control: Set all pins to ${value} PWM (${Math.round(value/255*100)}%)`);
+        }
+
+        function stopAllPWM() {
+            setMasterPWM(0);
+            log('Master Control: All PWM stopped');
+        }
+
+        // Event listeners
+        masterSlider.addEventListener('input', () => {
+            updateMasterDisplay();
+        });
+
+        masterSlider.addEventListener('change', () => {
+            const value = parseInt(masterSlider.value);
+            setMasterPWM(value);
+        });
+
+        // Master preset buttons
+        document.getElementById('masterPreset25').addEventListener('click', () => setMasterPWM(64));
+        document.getElementById('masterPreset50').addEventListener('click', () => setMasterPWM(128));
+        document.getElementById('masterPreset75').addEventListener('click', () => setMasterPWM(191));
+        document.getElementById('masterPreset100').addEventListener('click', () => setMasterPWM(255));
+        document.getElementById('masterStop').addEventListener('click', stopAllPWM);
+
+        // Update active pins list
+        function updateActivePinsList() {
+            const pins = Object.values(dashboardState).map(state => `GPIO ${state.pin}`);
+            activePinsList.textContent = pins.join(', ');
+        }
+
+        // Initialize
+        updateMasterDisplay();
+        updateActivePinsList();
+        log('Master Speed Control initialized');
+    </script>
+</body>
+</html> 
