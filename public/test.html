@@ -18,54 +18,12 @@
             <p class="subtitle">Real-time GPIO PWM control with WebSocket updates</p>
         </div>
 
-        <!-- Main PWM Control Section -->
-        <div class="main-control">
-            <div class="control-card slide-in">
-                <h2 class="card-title">🔧 Main PWM Control</h2>
-                <div class="pwm-control">
-                    <div class="control-row">
-                        <span class="control-label">GPIO Pin:</span>
-                        <select id="mainPin">
-                            <option value="18">GPIO 18 (Hardware PWM)</option>
-                            <option value="12">GPIO 12 (Hardware PWM)</option>
-                            <option value="13">GPIO 13 (Hardware PWM)</option>
-                            <option value="19">GPIO 19 (Hardware PWM)</option>
-                            <option value="4">GPIO 4 (Software PWM)</option>
-                            <option value="14">GPIO 14 (Software PWM)</option>
-                            <option value="15">GPIO 15 (Software PWM)</option>
-                            <option value="17">GPIO 17 (Software PWM)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="pwm-display" id="mainDisplay">128 (50%)</div>
-                    
-                    <div class="control-row">
-                        <span class="control-label">Duty Cycle:</span>
-                        <input type="range" id="mainSlider" class="pwm-slider" min="0" max="255" value="128">
-                    </div>
-                    
-                    <div class="control-row">
-                        <span class="control-label">Frequency:</span>
-                        <input type="number" id="mainFrequency" value="1000" min="1" max="8000">
-                        <span>Hz</span>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button class="action-btn danger" id="stopMainBtn">🔴 Stop</button>
-                        <button class="action-btn secondary" id="stopAllBtn">⛔ Stop All</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="control-card slide-in">
-                <h2 class="card-title">📊 System Status</h2>
-                <div id="statusDisplay">
-                    <div class="status-text">Connecting to server...</div>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="action-btn" id="getStatusBtn">📊 Refresh Status</button>
-                </div>
+        <!-- Quick Access Navigation -->
+        <div class="control-card slide-in">
+            <h2 class="card-title">🚀 Quick Access</h2>
+            <div class="action-buttons">
+                <button class="action-btn" onclick="window.location.href='main-control.html'">🎛️ Main Control</button>
+                <button class="action-btn secondary" onclick="window.location.href='/'">🏠 Home</button>
             </div>
         </div>
 
@@ -272,36 +230,7 @@
             </div>
         </div>
 
-        <!-- Master Speed Control -->
-        <div class="control-card slide-in">
-            <h2 class="card-title">🚀 Master Speed Control</h2>
-            <div class="pwm-control">
-                <div class="pwm-display" id="masterDisplay">0 (0%)</div>
-                
-                <div class="control-row">
-                    <span class="control-label">Master PWM:</span>
-                    <input type="range" id="masterSlider" class="pwm-slider" min="0" max="255" value="0">
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: #666;">
-                    <span>0 PWM (0%)</span>
-                    <span>255 PWM (100%)</span>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="action-btn" id="masterPreset25">25% All</button>
-                    <button class="action-btn" id="masterPreset50">50% All</button>
-                    <button class="action-btn" id="masterPreset75">75% All</button>
-                    <button class="action-btn" id="masterPreset100">100% All</button>
-                    <button class="action-btn danger" id="masterStop">🛑 Stop All</button>
-                </div>
-                
-                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
-                    <strong>📋 Active GPIO Pins:</strong>
-                    <div id="activePinsList">GPIO 19 (FL), GPIO 13 (FR), GPIO 12 (RR), GPIO 18 (RL)</div>
-                </div>
-            </div>
-        </div>
+
 
         <!-- Sensor Input Monitoring -->
         <div class="control-card slide-in">
@@ -488,14 +417,7 @@
             </div>
         </div>
 
-        <!-- Log Section -->
-        <div class="control-card log-section slide-in">
-            <h2 class="card-title">📝 Activity Log</h2>
-            <div id="log" class="log"></div>
-            <div class="action-buttons">
-                <button class="action-btn secondary" id="clearLogBtn">Clear Log</button>
-            </div>
-        </div>
+
     </div>
 
     <script>
@@ -504,17 +426,8 @@
         
         // DOM elements
         const connectionStatus = document.getElementById('connectionStatus');
-        const mainSlider = document.getElementById('mainSlider');
-        const mainDisplay = document.getElementById('mainDisplay');
-        const mainPin = document.getElementById('mainPin');
-        const mainFrequency = document.getElementById('mainFrequency');
-        const statusDisplay = document.getElementById('statusDisplay');
-        const logElement = document.getElementById('log');
         
-        // Master control elements
-        const masterSlider = document.getElementById('masterSlider');
-        const masterDisplay = document.getElementById('masterDisplay');
-        const activePinsList = document.getElementById('activePinsList');
+
         
         // Sensor elements
         const activeSensorsList = document.getElementById('activeSensorsList');
@@ -535,8 +448,7 @@
             4: { pin: 27, enabled: false, pulses: 0, rate: 0, lastPulse: null }  // Rear Left
         };
 
-        // Master control state
-        let masterControlActive = false;
+
 
         // RPM Controller state (frontend - for display only)
         const rpmController = {
@@ -710,21 +622,9 @@
             log('GPIO pin conflict prevention active', 'SUCCESS');
         }
 
-        // Utility function to log messages
+        // Utility function to log messages (simplified - console only)
         function log(message, type = 'INFO') {
-            const timestamp = new Date().toLocaleTimeString();
-            const colors = {
-                'INFO': '#00aaff',
-                'SUCCESS': '#00ff00',
-                'ERROR': '#ff0000',
-                'WARNING': '#ffaa00',
-                'WEBSOCKET': '#ff00ff'
-            };
-            
-            logElement.innerHTML += `<div style="color: ${colors[type] || '#fff'}">
-                [${timestamp}] [${type}] ${message}
-            </div>`;
-            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${type}] ${message}`);
         }
 
         // WebSocket connection handlers
@@ -814,11 +714,7 @@
         function updateDashboardDisplay(pin, dutyCycle) {
             const percentage = Math.round((dutyCycle / 255) * 100);
             
-            // Update main display if it matches
-            if (parseInt(mainPin.value) === pin) {
-                mainDisplay.textContent = `${dutyCycle} (${percentage}%)`;
-                mainSlider.value = dutyCycle;
-            }
+            // Main control has been moved to separate file
             
             // Update appropriate dashboard
             for (let dashboard in dashboardState) {
@@ -865,25 +761,11 @@
             });
         }
 
-        // Update main display
-        function updateMainDisplay() {
-            const duty = parseInt(mainSlider.value);
-            const percentage = Math.round((duty / 255) * 100);
-            mainDisplay.textContent = `${duty} (${percentage}%)`;
-        }
 
-        // Update master display
-        function updateMasterDisplay() {
-            const duty = parseInt(masterSlider.value);
-            const percentage = Math.round((duty / 255) * 100);
-            masterDisplay.textContent = `${duty} (${percentage}%)`;
-        }
 
-        // Update active pins list display
-        function updateActivePinsList() {
-            const pins = Object.values(dashboardState).map(state => `GPIO ${state.pin}`);
-            activePinsList.textContent = pins.join(', ');
-        }
+
+
+
 
         // Update active sensors list display
         function updateActiveSensorsList() {
@@ -1156,103 +1038,13 @@
             }
         }
 
-        // Set PWM for all dashboard pins (master control)
-        async function setMasterPWM(dutyCycle) {
-            const promises = [];
-            
-            log(`Master Control: Setting all GPIO pins to ${dutyCycle} (${Math.round((dutyCycle/255)*100)}%)`, 'INFO');
-            
-            // Update all dashboard states and send PWM commands
-            for (let dashboard in dashboardState) {
-                const pin = dashboardState[dashboard].pin;
-                dashboardState[dashboard].value = dutyCycle;
-                
-                // Update individual dashboard displays
-                updateDashboardDisplay(pin, dutyCycle);
-                
-                // Send PWM command for each pin
-                promises.push(setPWM(pin, dutyCycle));
-            }
-            
-            try {
-                await Promise.all(promises);
-                log(`Master Control: All GPIO pins updated successfully`, 'SUCCESS');
-            } catch (error) {
-                log(`Master Control Error: ${error.message}`, 'ERROR');
-            }
-        }
 
-        // Main slider real-time control
-        mainSlider.addEventListener('input', (e) => {
-            updateMainDisplay();
-            const pin = parseInt(mainPin.value);
-            const dutyCycle = parseInt(e.target.value);
-            const frequency = parseInt(mainFrequency.value);
-            
-            // Debounce the PWM calls
-            clearTimeout(mainSlider.debounceTimer);
-            mainSlider.debounceTimer = setTimeout(() => {
-                setPWM(pin, dutyCycle, frequency);
-            }, 100);
-        });
 
-        // Master slider real-time control
-        masterSlider.addEventListener('input', (e) => {
-            updateMasterDisplay();
-            const dutyCycle = parseInt(e.target.value);
-            
-            masterControlActive = true;
-            
-            // Debounce the PWM calls
-            clearTimeout(masterSlider.debounceTimer);
-            masterSlider.debounceTimer = setTimeout(() => {
-                setMasterPWM(dutyCycle);
-                masterControlActive = false;
-            }, 100);
-        });
 
-        // Master preset buttons
-        document.getElementById('masterPreset25').addEventListener('click', () => {
-            const value = 64; // 25% of 255
-            masterSlider.value = value;
-            updateMasterDisplay();
-            setMasterPWM(value);
-            log('Master Control: 25% preset applied to all GPIO pins', 'INFO');
-        });
 
-        document.getElementById('masterPreset50').addEventListener('click', () => {
-            const value = 128; // 50% of 255
-            masterSlider.value = value;
-            updateMasterDisplay();
-            setMasterPWM(value);
-            log('Master Control: 50% preset applied to all GPIO pins', 'INFO');
-        });
 
-        document.getElementById('masterPreset75').addEventListener('click', () => {
-            const value = 191; // 75% of 255
-            masterSlider.value = value;
-            updateMasterDisplay();
-            setMasterPWM(value);
-            log('Master Control: 75% preset applied to all GPIO pins', 'INFO');
-        });
 
-        document.getElementById('masterPreset100').addEventListener('click', () => {
-            const value = 255; // 100% of 255
-            masterSlider.value = value;
-            updateMasterDisplay();
-            setMasterPWM(value);
-            log('Master Control: 100% preset applied to all GPIO pins', 'INFO');
-        });
 
-        document.getElementById('masterStop').addEventListener('click', () => {
-            masterSlider.value = 0;
-            updateMasterDisplay();
-            setMasterPWM(0);
-            log('Master Control: Emergency stop - all GPIO pins stopped', 'WARNING');
-        });
-
-        // Main pin change handler
-        mainPin.addEventListener('change', updateMainDisplay);
 
         // Dashboard slider handlers
         document.querySelectorAll('.dashboard-slider').forEach(slider => {
@@ -1401,72 +1193,7 @@
             });
         });
 
-        // Stop main PWM
-        document.getElementById('stopMainBtn').addEventListener('click', () => {
-            const pin = parseInt(mainPin.value);
-            setPWM(pin, 0);
-            mainSlider.value = 0;
-            updateMainDisplay();
-        });
 
-        // Stop all PWM
-        document.getElementById('stopAllBtn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/pwm/stop-all', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    log(`All PWM stopped: ${data.stoppedPins.length} pins`, 'SUCCESS');
-                    
-                    // Reset all displays
-                    for (let dashboard in dashboardState) {
-                        dashboardState[dashboard].value = 0;
-                        updateDashboardDisplay(dashboardState[dashboard].pin, 0);
-                    }
-                    
-                    mainSlider.value = 0;
-                    updateMainDisplay();
-                }
-            } catch (error) {
-                log(`Stop All Error: ${error.message}`, 'ERROR');
-            }
-        });
-
-        // Get status
-        document.getElementById('getStatusBtn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/pwm/status');
-                const data = await response.json();
-                
-                statusDisplay.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <strong>Status:</strong> ${data.success ? '✅ Ready' : '❌ Error'}
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <strong>Mode:</strong> ${data.pigpioAvailable ? '🔧 Hardware Control' : '🖥️ Simulation'}
-                    </div>
-                    <div style="margin-bottom: 10px;">
-                        <strong>Active Pins:</strong> ${data.activePins.length}
-                    </div>
-                    <div style="font-size: 0.9rem; color: #666;">
-                        ${data.activePins.map(pin => `GPIO ${pin.pin}: ${pin.dutyPercentage}%`).join(', ') || 'None'}
-                    </div>
-                `;
-                
-                log('Status updated', 'INFO');
-            } catch (error) {
-                log(`Status Error: ${error.message}`, 'ERROR');
-            }
-        });
-
-        // Clear log
-        document.getElementById('clearLogBtn').addEventListener('click', () => {
-            logElement.innerHTML = '';
-            log('Log cleared', 'INFO');
-        });
 
         // RPM Controller Event Handlers
         document.getElementById('rpmSlider').addEventListener('input', (e) => {
@@ -1561,23 +1288,15 @@
         });
 
         // Initialize
-        updateMainDisplay();
-        updateMasterDisplay();
-        updateActivePinsList();
         updateActiveSensorsList();
         updateRPMDisplay();
         initializePinOptions();
         log('PWM Control Dashboard initialized', 'INFO');
         log('WebSocket connection established for real-time control', 'WEBSOCKET');
-        log('Master Speed Control ready - controls all 4 GPIO pins simultaneously', 'INFO');
+
         log('Sensor Input Monitoring ready - monitoring 4 GPIO sensor inputs', 'INFO');
         log('RPM Controller ready - closed-loop feedback control with 45 pulses/rotation', 'INFO');
         log('GPIO pin conflict prevention enabled - input/output pins are managed separately', 'INFO');
-        
-        // Initial status fetch
-        setTimeout(() => {
-            document.getElementById('getStatusBtn').click();
-        }, 1000);
     </script>
 </body>
 </html> 
